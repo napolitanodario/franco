@@ -38,6 +38,12 @@ JPEG encoding happens once per frame pair. Extra browsers read the same bytes. T
 
 Raise `--fps` toward 30, or the resolution toward 848x480 or 1280x720, only after the default stream is stable. USB 3 is the right port for those larger modes. `/status` and the process log are the place to see a mode the device refused: the SDK raises during `pipeline.start` and the process exits.
 
+## Object detection
+
+`realsense_web/detector.py` runs YOLO11n on a copy of the latest color frame. The weights are `models/yolo11n.onnx`, input 320 pixels, on two CPU threads. The worker keeps one waiting frame and the last finished list of boxes. The capture thread draws those boxes onto the color JPEG and does not wait for the next pass. Depth is unchanged.
+
+`YOLO_MODEL`, `YOLO_IMGSZ`, and `YOLO_CONFIDENCE` override the model path, the input size, and the score cutoff. `/status` includes `detections`, the number of boxes from the last finished pass.
+
 ## What this project leaves out
 
 There is no recording, no point cloud, and no camera control panel. `before_request` in `server.py` requires HTTP Basic Auth on every route, including the streams and `/status`. The default user and password are both `franco`. `STREAM_USERNAME` and `STREAM_PASSWORD` replace them. A failed check returns 401 and does not call the camera. The process does not expose a shell, a filesystem, or an admin API.

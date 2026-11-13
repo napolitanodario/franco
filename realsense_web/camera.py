@@ -14,9 +14,10 @@ from io import BytesIO
 from typing import Any
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from realsense_web.config import Settings
+from realsense_web.detector import Detection, ObjectDetector, try_start as start_detector
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class RealSenseCamera:
         self._colorizer: Any = None
         self._condition = threading.Condition()
         self._thread: threading.Thread | None = None
+        self._detector: ObjectDetector | None = None
         self._running = False
         self._streaming = False
 
@@ -100,6 +102,7 @@ class RealSenseCamera:
         self._pipeline.start(self._config)
         self._streaming = True
         self._running = True
+        self._detector = start_detector()
         self._thread = threading.Thread(
             target=self._capture_loop,
             name="realsense-capture",
@@ -111,6 +114,8 @@ class RealSenseCamera:
         """Stop the capture thread and release the device."""
 
         self._running = False
+        if self._detector is not None:
+            self._detector.stop()
         with self._condition:
             self._condition.notify_all()
 
@@ -167,6 +172,7 @@ class RealSenseCamera:
             "frames": frames,
             "running": running,
             "last_error": last_error,
+            "detections": len(self._detector.detections()) if self._detector else 0,
         }
 
     def _first_device(self) -> Any:
@@ -193,9 +199,15 @@ class RealSenseCamera:
 
                 # Encode before the next wait. The numpy views borrow memory
                 # owned by these frame objects and are invalid after that.
+                color_image = np.asanyarray(color_frame.get_data())
+                boxes: tuple[Detection, ...] = ()
+                if self._detector is not None:
+                    self._detector.submit(color_image)
+                    boxes = self._detector.detections()
                 color_jpeg = encode_rgb(
-                    np.asanyarray(color_frame.get_data()),
+                    color_image,
                     self.settings.jpeg_quality,
+                    boxes,
                 )
                 colorized = self._colorizer.colorize(depth_frame)
                 depth_jpeg = encode_rgb(
@@ -230,8 +242,12 @@ class RealSenseCamera:
             logger.warning("Capture interrupted: %s", message)
 
 
-def encode_rgb(array: np.ndarray, quality: int) -> bytes:
-    """Encode an RGB uint8 image as JPEG."""
+def encode_rgb(
+    array: np.ndarray,
+    quality: int,
+    boxes: tuple[Detection, ...] = (),
+) -> bytes:
+    """Encode an RGB uint8 image as JPEG, drawing any detection boxes first."""
 
     if array.ndim != 3 or array.shape[2] not in (3, 4):
         raise ValueError(f"Expected an RGB frame, got shape {array.shape}.")
@@ -243,9 +259,20 @@ def encode_rgb(array: np.ndarray, quality: int) -> bytes:
         array = np.ascontiguousarray(array)
 
     image = Image.fromarray(array, mode="RGB")
+    if boxes:
+        _draw_boxes(image, boxes)
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=quality)
     return buffer.getvalue()
+
+
+def _draw_boxes(image: Image.Image, boxes: tuple[Detection, ...]) -> None:
+    draw = ImageDraw.Draw(image)
+    for box in boxes:
+        draw.rectangle((box.x1, box.y1, box.x2, box.y2), outline=(255, 220, 0), width=2)
+        label = f"{box.label} {box.score:.2f}"
+        text_y = box.y1 - 12 if box.y1 >= 14 else box.y1 + 2
+        draw.text((box.x1 + 2, text_y), label, fill=(255, 220, 0))
 
 
 def _device_text(device: Any, info: Any, default: str) -> str:
