@@ -1,0 +1,21 @@
+[Unit]
+Description=RealSense color and depth preview
+After=network-online.target realsense-usbfs.service
+Wants=network-online.target realsense-usbfs.service
+# The process exits until pyrealsense2 is installed. Keep trying across that
+# whole wait, and after later camera or USB dropouts.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=dario
+Group=dario
+WorkingDirectory=/home/dario/franco
+Environment=STREAM_USERNAME=franco
+Environment=STREAM_PASSWORD=franco
+ExecStart=/home/dario/franco/.venv/bin/python /home/dario/franco/run.py --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

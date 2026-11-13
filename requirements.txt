@@ -1,0 +1,8 @@
+# Direct dependencies of this preview server.
+# pyrealsense2 is intentionally absent: this Raspberry Pi runs CPython 3.13
+# on aarch64, and PyPI has no matching build. Build the wrapper from the
+# librealsense sources into this virtual environment. See .agents/raspberry-pi.md.
+
+flask==3.1.3
+numpy==2.5.4
+pillow==13.0.0
