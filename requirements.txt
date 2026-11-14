@@ -1,8 +1,6 @@
 # Extra Python packages for /usr/bin/python3 on this Pi.
-# numpy and Pillow come from apt. Flask is in apt too (python3-flask); it is
-# listed here so the shared prefix works before that package is installed.
-# onnxruntime has no Ubuntu 24.04 arm64 package. Install with:
-#   pip3 install --target /srv/franco/python-deps -r requirements.txt
+# numpy, Pillow, and Flask come from apt. onnxruntime has no Ubuntu 24.04
+# arm64 package; the wheel lives in /srv/franco/python-deps.
 
 flask==3.0.3
 onnxruntime==1.20.1

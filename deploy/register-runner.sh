@@ -1,9 +1,8 @@
 #!/bin/bash
 # Register the self-hosted GitHub Actions runner and install its user service.
 #
-# Run this as the franco user. The only argument is the one-time registration
-# token from the repository page Settings, Actions, Runners, New self-hosted
-# runner. The token is not stored in this repository. After registration the
+# Run this as the franco user. The only argument is a one-time registration
+# token. The token is not stored in this repository. After registration the
 # runner keeps its own credentials in /srv/franco/actions-runner.
 #
 # Usage: ./deploy/register-runner.sh <registration-token>
@@ -41,4 +40,4 @@ cp /srv/franco/ros2_ws/src/franco/deploy/franco-runner.service "$unit_dir/franco
 cp /srv/franco/ros2_ws/src/franco/deploy/franco.service "$unit_dir/franco.service"
 systemctl --user daemon-reload
 systemctl --user enable --now franco-runner.service
-echo "Runner service is enabled. Enable linger with: sudo loginctl enable-linger franco"
+echo "Runner service is enabled."

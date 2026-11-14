@@ -1,11 +1,10 @@
 # Shell environment for every franco ROS 2 process.
 #
 # Source this file. Do not execute it. It loads Jazzy and the workspace
-# install prefix. Two extra prefixes are appended only so this machine can run
-# before the apt packages are installed: /srv/franco/python-deps holds the
-# onnxruntime wheel (and Flask, if apt does not have it yet), and
-# /srv/franco/ros-overlay holds an extracted ros-jazzy-vision-msgs package.
-# System paths stay in front, so a later apt install wins.
+# install prefix, then appends two shared prefixes after the system paths.
+# /srv/franco/python-deps holds the onnxruntime wheel. /srv/franco/ros-overlay
+# holds an extracted ros-jazzy-vision-msgs package. System paths stay in front,
+# so the apt packages are the ones that load.
 
 # ROS setup scripts read variables they do not always define.
 # setup.bash uses BASH_SOURCE. Under zsh that variable is empty, so the

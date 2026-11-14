@@ -41,4 +41,4 @@ Stop the launch with Ctrl+C. One graph at a time: a second launch cannot open th
 
 ## Service
 
-`deploy/franco.service` is a user unit for the `franco` account. Install steps, the USB buffer unit, and the self-hosted runner are in `.agents/raspberry-pi.md`. The design notes are in `docs/design.md`.
+`deploy/franco.service` is a user unit for the `franco` account. The machine, the USB buffer, and the runner are described in `.agents/raspberry-pi.md`. The design notes are in `docs/design.md`.
