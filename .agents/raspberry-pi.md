@@ -35,6 +35,6 @@ The preview listens on `0.0.0.0:8080`. From a device on the same Wi-Fi, open `ht
 
 ## GitHub Actions runner
 
-The runner is registered in `/srv/franco/actions-runner` with the label `franco`, and `franco-runner.service` runs it as `franco`. A push to `main` runs `.github/workflows/deploy.yml` on this machine: stop the graph, fast-forward the shared clone, `colcon build --packages-select franco`, start the graph. The job does not restart the runner.
+The runner is registered in `/srv/franco/actions-runner` with the label `franco`, and `franco-runner.service` runs it as `franco`. A push to `main` runs `.github/workflows/deploy.yml` on this machine: stop the graph, fast-forward the shared clone, remove `build/franco` and `install/franco`, `colcon build --packages-select franco`, start the graph. The job does not restart the runner.
 
 No GitHub password is stored for `dario`. The runner keeps its own credential files in `/srv/franco/actions-runner`. The repository is public, so `git fetch` does not need a personal access token.

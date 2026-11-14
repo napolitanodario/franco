@@ -26,5 +26,9 @@ jobs:
           # shellcheck disable=SC1091
           source /srv/franco/ros2_ws/src/franco/deploy/env.sh
           cd /srv/franco/ros2_ws
+          # setuptools copies package data with chmod and utime. The kernel
+          # allows that only for the file owner, so a tree left by dario makes
+          # this franco job fail with "Operation not permitted".
+          rm -rf build/franco install/franco
           colcon build --packages-select franco --cmake-args -DCMAKE_BUILD_TYPE=Release
           systemctl --user start franco.service
