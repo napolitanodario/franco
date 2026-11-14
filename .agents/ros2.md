@@ -8,7 +8,7 @@ Distribution: ROS 2 Jazzy on Ubuntu 24.04. The workspace overlay is `/srv/franco
 | --- | --- | --- |
 | `realsense2_camera` |  | `/camera/camera/color/image_raw`, `/camera/camera/depth/image_rect_raw`, camera info, TF |
 | `franco_detect` | color image | `/franco/detections` (`vision_msgs/Detection2DArray`) |
-| `franco_preview` | color, depth, `/franco/detections` | none (HTTP on `127.0.0.1:8080`) |
+| `franco_preview` | color, depth, `/franco/detections` | none (HTTP on `0.0.0.0:8080`) |
 | `franco_telemetry` | color, `/franco/detections`, `/franco/command/last` | `/diagnostics` |
 | `franco_command` | `/franco/cmd_vel` (`geometry_msgs/Twist`) | `/franco/command/last` |
 
@@ -32,7 +32,7 @@ Detection parameters, set on the node if you run it without the launch file:
 - `model_path` (default `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`)
 - `input_size` (320), `confidence` (0.45), `iou` (0.45), `max_detections` (20)
 
-Preview parameters: `color_topic`, `depth_topic` (default `/camera/camera/depth/image_rect_raw`), `port` (8080), `jpeg_quality` (75). `host` is accepted and then forced to `127.0.0.1`.
+Preview parameters: `color_topic`, `depth_topic` (default `/camera/camera/depth/image_rect_raw`), `port` (8080), `jpeg_quality` (75), `host` (default `0.0.0.0`, every interface).
 
 ## Adding a node
 
@@ -47,4 +47,4 @@ ros2 topic pub --once /franco/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}
 
 Read health with `ros2 topic echo /diagnostics`.
 
-Do not publish the preview off the loopback interface from this package. Do not open the camera with pyrealsense2 in a second process while the driver is running.
+Do not open the camera with pyrealsense2 in a second process while the driver is running. The preview is already reachable on the local network.

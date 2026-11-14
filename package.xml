@@ -6,7 +6,7 @@
   <description>
     Starting ROS 2 graph for a RealSense D415 on a Raspberry Pi 4.
     The camera driver is realsense2_camera. This package adds YOLO11n
-    detection, a loopback preview, diagnostics, and a command placeholder.
+    detection, a Wi-Fi preview, diagnostics, and a command placeholder.
   </description>
   <maintainer email="darionapo2.0@gmail.com">Dario Napolitano</maintainer>
   <license>Apache-2.0</license>

@@ -1,8 +1,8 @@
 # franco
 
-Starting ROS 2 graph for an Intel RealSense D415 on a Raspberry Pi 4. The camera driver is the existing `realsense2_camera` package. This repository adds four nodes: YOLO11n detection, a preview bound to loopback, diagnostics, and a command placeholder that does not drive any hardware.
+Starting ROS 2 graph for an Intel RealSense D415 on a Raspberry Pi 4. The camera driver is the existing `realsense2_camera` package. This repository adds four nodes: YOLO11n detection, a preview on the local network, diagnostics, and a command placeholder that does not drive any hardware.
 
-The preview is only on `127.0.0.1:8080`. It is not published on the LAN and it is not exposed through a tunnel.
+The preview listens on port 8080 on every interface. A phone or laptop on the same Wi-Fi opens `http://<pi-address>:8080`. It is not exposed through a tunnel.
 
 ## Layout
 
@@ -24,11 +24,7 @@ source /srv/franco/ros2_ws/src/franco/deploy/env.sh
 ros2 launch franco franco.launch.py
 ```
 
-On the Pi itself, open `http://127.0.0.1:8080`. From another machine, forward the port over SSH and open the same address locally:
-
-```bash
-ssh -L 8080:127.0.0.1:8080 franco@<pi>
-```
+On the Pi itself, open `http://127.0.0.1:8080`. From another device on the Wi-Fi, open `http://<pi-address>:8080`. The launch log prints the addresses it detected.
 
 Stop the launch with Ctrl+C. One graph at a time: a second launch cannot open the camera.
 

@@ -39,7 +39,7 @@ setup(
     zip_safe=False,
     maintainer="Dario Napolitano",
     maintainer_email="darionapo2.0@gmail.com",
-    description="Starting ROS 2 graph for a RealSense D415: detection, loopback preview, diagnostics, and a command placeholder.",
+    description="Starting ROS 2 graph for a RealSense D415: detection, Wi-Fi preview, diagnostics, and a command placeholder.",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

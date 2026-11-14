@@ -8,11 +8,20 @@
 # System paths stay in front, so a later apt install wins.
 
 # ROS setup scripts read variables they do not always define.
+# setup.bash uses BASH_SOURCE. Under zsh that variable is empty, so the
+# script looks for setup.sh in the current directory and fails. Pick the
+# file that matches the shell that is sourcing this one. systemd runs bash.
 set +u
-source /opt/ros/jazzy/setup.bash
-if [ -f /srv/franco/ros2_ws/install/setup.bash ]; then
-  source /srv/franco/ros2_ws/install/setup.bash
+if [ -n "${ZSH_VERSION:-}" ]; then
+  _franco_setup_ext=zsh
+else
+  _franco_setup_ext=bash
 fi
+source "/opt/ros/jazzy/setup.${_franco_setup_ext}"
+if [ -f "/srv/franco/ros2_ws/install/setup.${_franco_setup_ext}" ]; then
+  source "/srv/franco/ros2_ws/install/setup.${_franco_setup_ext}"
+fi
+unset _franco_setup_ext
 
 _franco_append_python() {
   # Append a directory to PYTHONPATH when it exists and is not already listed.

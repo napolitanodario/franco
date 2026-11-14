@@ -6,7 +6,7 @@ Five processes, one camera owner.
 
 `franco_detect` subscribes to color with sensor-data QoS, which is what the driver uses. A reliable subscription would not connect. The callback keeps only the newest frame. A worker runs YOLO11n (ONNX, CPU, two threads, 320 px input) and a timer publishes `/franco/detections`. A pass that is still running drops the waiting frame instead of building a queue. Missing weights are not fatal: the node publishes an empty list.
 
-`franco_preview` subscribes to color, depth, and detections. It JPEG-encodes the latest color image with the latest boxes drawn on it, and a colorized copy of the depth image. Flask serves those bytes as MJPEG on `127.0.0.1:8080`. The bind address is forced. A parameter that asks for another interface is ignored and logged. Handlers wait for the next frame. They do not call the camera SDK.
+`franco_preview` subscribes to color, depth, and detections. It JPEG-encodes the latest color image with the latest boxes drawn on it, and a colorized copy of the depth image. Flask serves those bytes as MJPEG on `0.0.0.0:8080`, so browsers on the same Wi-Fi can open the page. Handlers wait for the next frame. They do not call the camera SDK.
 
 `franco_telemetry` counts color images for one second, reads the latest detection length, reads the latched command, and reads `/sys/module/usbcore/parameters/usbfs_memory_mb`. It publishes one `DiagnosticArray` on `/diagnostics`.
 

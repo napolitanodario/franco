@@ -1,17 +1,16 @@
 # Local preview node.
 #
 # Subscribes to the color image, the depth image, and /franco/detections.
-# It encodes the latest pair to JPEG and serves two MJPEG streams on
-# 127.0.0.1 only. The page is how a person at this machine checks that the
-# camera and the detector are alive. It is not a published service: the bind
-# address is forced to the loopback interface, and there is no account, no
-# tunnel, and no route that writes anything back to the camera.
+# It encodes the latest pair to JPEG and serves two MJPEG streams on every
+# network interface, so a browser on the same Wi-Fi can open the page. There
+# is no account and no tunnel. Nothing on the page writes back to the camera.
 #
 # Depth is colorized here, not in the driver. Alignment stays off. The two
 # pictures are a side by side check, not a fused image.
 
 from __future__ import annotations
 
+import socket
 import threading
 from io import BytesIO
 from pathlib import Path
@@ -29,22 +28,23 @@ from vision_msgs.msg import Detection2DArray
 from franco.runtime import spin_until_shutdown
 
 _BOUNDARY = "frame"
-_LOOPBACK = "127.0.0.1"
+_LAN = "0.0.0.0"
 
 
 class PreviewNode(Node):
-    """Holds the latest JPEGs and serves them on loopback.
+    """Holds the latest JPEGs and serves them to browsers on the local network.
 
     The subscriptions update the bytes under a condition. HTTP handlers wait
     on that condition, so a slow browser does not change what the camera does.
     """
 
     def __init__(self) -> None:
-        """Subscribe, encode, and start the loopback page.
+        """Subscribe, encode, and start the page.
 
-        color_topic and depth_topic come from realsense2_camera. port is the
-        TCP port on 127.0.0.1. jpeg_quality is the encode quality from 1 to 95.
-        A requested host other than 127.0.0.1 is ignored on purpose.
+        color_topic and depth_topic come from realsense2_camera. host is the
+        interface to bind. The default 0.0.0.0 accepts every interface,
+        including Wi-Fi. port is the TCP port. jpeg_quality is the encode
+        quality from 1 to 95.
         """
 
         super().__init__("franco_preview")
@@ -52,14 +52,9 @@ class PreviewNode(Node):
         self.declare_parameter("depth_topic", "/camera/camera/depth/image_rect_raw")
         self.declare_parameter("port", 8080)
         self.declare_parameter("jpeg_quality", 75)
-        self.declare_parameter("host", _LOOPBACK)
+        self.declare_parameter("host", _LAN)
 
-        requested_host = self.get_parameter("host").get_parameter_value().string_value
-        if requested_host != _LOOPBACK:
-            self.get_logger().warning(
-                "Refusing to bind %s. The preview stays on %s."
-                % (requested_host, _LOOPBACK)
-            )
+        self._host = self.get_parameter("host").get_parameter_value().string_value or _LAN
         self._port = int(self.get_parameter("port").value)
         self._quality = int(self.get_parameter("jpeg_quality").value)
         self._bridge = CvBridge()
@@ -82,9 +77,8 @@ class PreviewNode(Node):
         self._app = _build_app(self, template_folder)
         self._http = threading.Thread(target=self._serve, name="franco-preview", daemon=True)
         self._http.start()
-        self.get_logger().info(
-            "Preview on http://%s:%s" % (_LOOPBACK, self._port)
-        )
+        for address in _ipv4_addresses():
+            self.get_logger().info("Preview on http://%s:%s" % (address, self._port))
 
     def wait_jpeg(self, kind: str, previous_id: int, timeout: float) -> tuple[int, bytes | None]:
         """Block until a newer JPEG of the requested kind is ready.
@@ -168,14 +162,15 @@ class PreviewNode(Node):
             self._boxes = boxes
 
     def _serve(self) -> None:
-        """Run the Flask development server on loopback until the process exits.
+        """Run the Flask development server until the process exits.
 
         The reloader is off so this process is not forked. The thread is a
         daemon: when rclpy shuts down, the process exit closes the port.
+        host 0.0.0.0 listens on Wi-Fi as well as on loopback.
         """
 
         self._app.run(
-            host=_LOOPBACK,
+            host=self._host,
             port=self._port,
             threaded=True,
             use_reloader=False,
@@ -330,6 +325,36 @@ def _parts(node: PreviewNode, kind: str):
             f"Content-Length: {len(jpeg)}\r\n\r\n"
         )
         yield header.encode("ascii") + jpeg + b"\r\n"
+
+
+def _ipv4_addresses() -> list[str]:
+    """Return IPv4 addresses a browser on the LAN can use, plus loopback.
+
+    Loopback is always included so a browser on the Pi still has a URL.
+    Addresses that start with 127. are not duplicated. The list can be empty
+    of LAN addresses when Wi-Fi is down. The function does not send packets.
+    """
+
+    found = ["127.0.0.1"]
+
+    def add(address: str) -> None:
+        """Append one LAN address when it is new and not a loopback address."""
+
+        if address and not address.startswith("127.") and address not in found:
+            found.append(address)
+
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            add(info[4][0])
+    except socket.gaierror:
+        pass
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("192.0.2.1", 9))
+            add(sock.getsockname()[0])
+    except OSError:
+        pass
+    return found
 
 
 def _template_directory() -> Path:

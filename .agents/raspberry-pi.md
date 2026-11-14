@@ -76,7 +76,7 @@ systemctl --user enable --now franco.service
 
 Logs: `journalctl --user -u franco.service -f`.
 
-The preview listens on `127.0.0.1:8080` only. From a laptop, use `ssh -L 8080:127.0.0.1:8080 franco@<pi>` and open `http://127.0.0.1:8080` on the laptop.
+The preview listens on `0.0.0.0:8080`. From a device on the same Wi-Fi, open `http://<pi-address>:8080`. On the Pi, `http://127.0.0.1:8080` still works.
 
 ## GitHub Actions runner
 

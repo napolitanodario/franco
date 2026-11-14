@@ -13,7 +13,7 @@ The camera device is owned by `realsense2_camera`, the standard ROS 2 driver, al
 Four nodes sit on the driver's topics:
 
 - `franco_detect` subscribes to color and publishes `vision_msgs/Detection2DArray` on `/franco/detections`. The class id is the COCO name string. That is a shortcut. A later metadata step can replace it with a stable id. Boxes are not tracked across frames, so the detection id field is empty. There is no 6D pose.
-- `franco_preview` subscribes to color, depth, and detections. It draws the latest boxes and serves MJPEG on `127.0.0.1` only. Depth is colorized in this node from the 16-bit image. Alignment stays off because it costs more CPU than this check needs.
+- `franco_preview` subscribes to color, depth, and detections. It draws the latest boxes and serves MJPEG on every interface, port 8080, so a browser on the same Wi-Fi can watch. Depth is colorized in this node from the 16-bit image. Alignment stays off because it costs more CPU than this check needs. There is no Cloudflare tunnel and no password on the page.
 - `franco_telemetry` publishes `diagnostic_msgs/DiagnosticArray` on `/diagnostics` once a second. The statuses are camera rate, detection count, the last command, and the USB buffer size.
 - `franco_command` subscribes to `/franco/cmd_vel` and republishes the last `geometry_msgs/Twist` on `/franco/command/last` with transient local durability. It does not actuate anything.
 
@@ -27,7 +27,7 @@ The YOLO weights are a file on disk, `models/yolo11n.onnx`. The repository does 
 
 ## How a new node should join
 
-Subscribe or publish the topics in the table in the README. Do not open the RealSense device from a second process. Do not bind a new page on `0.0.0.0` until there is an explicit decision to publish the stream. Prefer `/diagnostics` for health, and add a `DiagnosticStatus` name rather than a one-off topic, unless the data is something a controller must act on.
+Subscribe or publish the topics in the table in the README. Do not open the RealSense device from a second process. Prefer `/diagnostics` for health, and add a `DiagnosticStatus` name rather than a one-off topic, unless the data is something a controller must act on.
 
 ## Deploy
 
