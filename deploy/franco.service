@@ -1,0 +1,21 @@
+# User service that runs the franco ROS 2 graph as the franco account.
+#
+# It is not a system unit and it does not run as dario. systemd --user starts
+# it after linger is enabled, so the graph comes back at boot without a login.
+# The process sources deploy/env.sh and then launches the graph. Restart=always
+# covers a camera disconnect: the driver exits, and the whole graph is started
+# again five seconds later.
+
+[Unit]
+Description=Franco ROS 2 graph
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/franco/ros2_ws
+ExecStart=/bin/bash /srv/franco/ros2_ws/src/franco/deploy/run-graph.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

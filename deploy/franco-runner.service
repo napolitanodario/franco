@@ -1,0 +1,22 @@
+# User service for the GitHub Actions self-hosted runner.
+#
+# The runner process lives in /srv/franco/actions-runner and runs as franco,
+# which is the account that may update the shared checkout. It is separate
+# from franco.service. A deploy job stops and starts the graph, and it must
+# not restart this unit, or the job would kill itself.
+
+[Unit]
+Description=GitHub Actions runner for franco
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/franco/actions-runner
+ExecStart=/srv/franco/actions-runner/run.sh
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

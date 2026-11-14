@@ -1,0 +1,2 @@
+# The YOLO11n weights file belongs here as models/yolo11n.onnx.
+# The file is gitignored because it is a binary download, not source.

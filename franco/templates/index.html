@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!-- Local preview page for the franco graph.
+
+     Two images, color and colorized depth. Both URLs are same-origin paths
+     on the loopback server. This page has no controls that change the camera
+     or publish a command. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>franco preview</title>
+  <style>
+    body { font-family: sans-serif; margin: 1.5rem; background: #111; color: #eee; }
+    img { width: 100%; max-width: 640px; background: #000; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    figure { margin: 0; }
+    figcaption { margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+  <h1>franco preview</h1>
+  <p>Loopback only, port {{ port }}. This page is not reachable from other machines.</p>
+  <div class="row">
+    <figure>
+      <figcaption>Color</figcaption>
+      <img src="/stream/color" alt="Color stream">
+    </figure>
+    <figure>
+      <figcaption>Depth</figcaption>
+      <img src="/stream/depth" alt="Depth stream">
+    </figure>
+  </div>
+</body>
+</html>

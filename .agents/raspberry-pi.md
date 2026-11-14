@@ -1,123 +1,91 @@
-# Raspberry Pi 4 setup
+# Raspberry Pi 4
 
-This project was prepared on a Raspberry Pi 4 with 8 GB of RAM, Debian 13 (trixie), aarch64, and CPython 3.13.5. The RealSense D415 is not a supported target of the upstream Pi kernel modules. The practical backend on this board is the SDK's userspace libuvc path (`FORCE_LIBUVC`), which talks to the camera through libusb and does not need a patched kernel.
+This machine is a Raspberry Pi 4, 8 GB, Ubuntu 24.04 aarch64, ROS 2 Jazzy. librealsense is installed under `/usr/local` with the userspace USB backend, so the stock kernel is enough. The D415 must use a USB 3 port and a USB 3 cable.
 
-## Python packages
+Two login accounts matter. `dario` is the administrator and the only member of `sudo`. `franco` is the account for collaborators and for the deploy runner. It is not in `sudo`. Both are in the `dev` group. The shared tree is `/srv/franco`, group `dev`, setgid.
 
-The repository virtual environment is `.venv`, created with the system Python 3.13. Install the web dependencies there:
+## Paths
+
+- Workspace: `/srv/franco/ros2_ws`
+- This package: `/srv/franco/ros2_ws/src/franco`
+- RealSense ROS driver: `/srv/franco/ros2_ws/src/realsense-ros`
+- Actions runner: `/srv/franco/actions-runner`
+- Optional pip prefix: `/srv/franco/python-deps`
+- YOLO weights: `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`
+
+Place the weights file by hand. It is listed in `.gitignore`. The detection node starts without it and publishes no boxes.
+
+## Packages
+
+These are already available to every user because they are installed on the system: ROS 2 Jazzy under `/opt/ros/jazzy`, `cv_bridge`, `diagnostic_msgs`, `python3-numpy`, `python3-pil`, and librealsense including `pyrealsense2` for the system Python 3.12.
+
+Install the remaining apt packages once, as `dario`. `sudo` asks for the `dario` password, so this step is not done by the deploy job:
 
 ```bash
-source .venv/bin/activate
-pip install -r requirements.txt
+sudo apt update
+sudo apt install -y ros-jazzy-vision-msgs python3-flask python3-pip
 ```
 
-`requirements.txt` lists Flask, NumPy, and Pillow. It does not list `pyrealsense2`.
+Until that apt install happens, two shared prefixes stand in for it. `/srv/franco/ros-overlay` is an extracted `ros-jazzy-vision-msgs` package. `/srv/franco/python-deps` holds Flask and `onnxruntime` from pip. `deploy/env.sh` appends both, after the system paths, so the apt packages take over when they are installed.
 
-## Why the SDK is built from source
-
-`pip install pyrealsense2` on this interpreter reports that no distribution matches. Official wheels for aarch64 do not cover CPython 3.13 here. Librealsense 2.59.1 does support building the Python wrapper for 3.13, so the wrapper is compiled against `.venv/bin/python` and installed into that environment.
-
-The Raspberry Pi itself remains outside the SDK's validated platform list. The streams this project uses, color and depth, are the part that commonly works. Treat the build below as the installation method, and confirm it with the import check at the end.
-
-## Build librealsense 2.59.1
-
-Unplug the camera before building. Install the compilers and libraries, then build the tag rather than the moving default branch:
+`onnxruntime` has no Ubuntu 24.04 package for this board. Refresh the wheel with:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y git cmake libssl-dev libusb-1.0-0-dev pkg-config python3-dev libudev-dev
-
-mkdir -p "$HOME/src"
-git clone --depth 1 --branch v2.59.1 https://github.com/realsenseai/librealsense.git "$HOME/src/librealsense"
-cd "$HOME/src/librealsense"
-mkdir build && cd build
-cmake .. \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DFORCE_LIBUVC=true \
-  -DBUILD_EXAMPLES=OFF \
-  -DBUILD_GRAPHICAL_EXAMPLES=OFF \
-  -DBUILD_PYTHON_BINDINGS=ON \
-  -DPYTHON_EXECUTABLE="$HOME/franco/.venv/bin/python"
-make -j2
-sudo make install
+pip3 install --target /srv/franco/python-deps -r /srv/franco/ros2_ws/src/franco/requirements.txt
+rm -rf /srv/franco/python-deps/numpy /srv/franco/python-deps/numpy.libs /srv/franco/python-deps/numpy-*.dist-info
 ```
 
-`make -j2` is the job count to use on this Pi. The source tree stays in `$HOME/src/librealsense`, outside the project repository. Graphical examples stay off so the build does not need GTK or a desktop OpenGL stack.
+The wheel pulls in NumPy 2. The system NumPy is 1.26, and `cv_bridge` was built against that. Leaving the bundled NumPy in the prefix makes `import cv2` fail, so the install removes it and the system NumPy stays in use.
 
-If the compiler is killed, the machine ran out of memory. Add swap, then run `make -j2` again in the same `build` directory.
-
-Check that this virtual environment can see the wrapper:
+Build:
 
 ```bash
-"$HOME/franco/.venv/bin/python" -c "import pyrealsense2 as rs; print(rs.__file__)"
+source /srv/franco/ros2_ws/src/franco/deploy/env.sh
+cd /srv/franco/ros2_ws
+colcon build --packages-select franco --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
-If that import fails after `sudo make install`, find the extension module and note the directory that contains the `pyrealsense2` package:
+## USB buffer
+
+The kernel USB buffer resets on reboot. Install the oneshot as `dario`:
 
 ```bash
-find "$HOME/src/librealsense/build" -name 'pyrealsense2*.so'
-```
-
-Point `PYTHONPATH` at the directory that contains the package, or copy that package into `.venv/lib/python3.13/site-packages/`. The process that runs `python run.py` has to import `pyrealsense2` with no extra path after the setup is finished.
-
-## udev and the USB port
-
-Copy the SDK permission rules, reload udev, and plug the camera into a blue USB 3 port with a data cable that supports USB 3:
-
-```bash
-sudo cp "$HOME/src/librealsense/config/99-realsense-libusb.rules" /etc/udev/rules.d/
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-Unplug the camera and plug it back in after the rules are installed. The rules allow a normal user to open the device, so run `python run.py` as that user.
-
-The kernel USB filesystem buffer defaults to a size that is tight for RealSense. Raise it before streaming:
-
-```bash
-echo 128 | sudo tee /sys/module/usbcore/parameters/usbfs_memory_mb
-```
-
-That value resets on reboot. `run.py` logs a warning when it sees a value below 128. The oneshot `deploy/realsense-usbfs.service` writes 128 on every boot.
-
-## Keep the stream reachable
-
-`deploy/realsense-preview.service` runs the preview as user `dario`, listens on `0.0.0.0:8080`, and starts again at boot. `Restart=always` also brings it back after a crash or a USB dropout. There is no start-rate limit, so the unit keeps retrying while `pyrealsense2` is still missing. The gap between tries is 20 seconds.
-
-Install both units once:
-
-```bash
-sudo cp "$HOME/franco/deploy/realsense-usbfs.service" /etc/systemd/system/
-sudo cp "$HOME/franco/deploy/realsense-preview.service" /etc/systemd/system/
+sudo cp /srv/franco/ros2_ws/src/franco/deploy/realsense-usbfs.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now realsense-usbfs.service realsense-preview.service
+sudo systemctl enable --now realsense-usbfs.service
 ```
 
-The browser asks for HTTP Basic Auth before the page or either stream. The default user and password are both `franco`. Set `STREAM_USERNAME` and `STREAM_PASSWORD` on the service to change them. On this Pi the Wi-Fi address is the one to give out. The host firewall here accepts inbound TCP, so port 8080 does not need an extra rule.
+Check with `cat /sys/module/usbcore/parameters/usbfs_memory_mb`. The value should be 128. The telemetry node reports it on `/diagnostics`.
 
-Until `import pyrealsense2` works, the unit stays in `activating (auto-restart)` and nothing listens on 8080. After `sudo make install` puts the wrapper on the virtualenv path, the next retry opens the port by itself. Follow it with:
+## User services
+
+Linger lets `franco` run user services at boot without a logged-in session. As `dario`:
 
 ```bash
-systemctl status realsense-preview.service
-journalctl -u realsense-preview.service -f
+sudo loginctl enable-linger franco
 ```
 
-`Active: active (running)` and a log line `Open http://...:8080` mean the page is up. `/status` then reports `running`, a rising `frames` count, and `last_error` set to null.
-
-`sudo systemctl stop realsense-preview.service` keeps it stopped until the next start or boot. `sudo systemctl restart realsense-preview.service` picks up code changes.
-
-## Watch the stream from a terminal
-
-A foreground run uses the same program the service runs:
+As `franco`, install the graph unit:
 
 ```bash
-cd "$HOME/franco"
-source .venv/bin/activate
-python run.py
+mkdir -p ~/.config/systemd/user
+cp /srv/franco/ros2_ws/src/franco/deploy/franco.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now franco.service
 ```
 
-Stop that process before starting the service, because both would open the camera. The page shows color and colorized depth. `/status` returns JSON, including `frames` and `last_error`.
+Logs: `journalctl --user -u franco.service -f`.
 
-A refused stream mode fails at startup and the process exits with a traceback from the SDK. The default 640x480 at 15 fps is a mode the D415 publishes for both sensors. A USB 2 enumeration is logged as a warning. The preview can still run at the default size. Larger sizes want the USB 3 port.
+The preview listens on `127.0.0.1:8080` only. From a laptop, use `ssh -L 8080:127.0.0.1:8080 franco@<pi>` and open `http://127.0.0.1:8080` on the laptop.
 
-An empty page with `frames` stuck at 0 means the pipeline started and no pair has been published yet. Read `last_error` in `/status` and the warnings in the terminal. A permissions problem usually shows up earlier, as no visible device.
+## GitHub Actions runner
+
+The runner binary is unpacked in `/srv/franco/actions-runner`. Registration uses a one-time token from the repository settings page (Actions, Runners, New self-hosted runner). Run the script as `franco`, not as `dario`:
+
+```bash
+/srv/franco/ros2_ws/src/franco/deploy/register-runner.sh '<token>'
+```
+
+The script configures the runner with the label `franco`, copies the user units, and starts `franco-runner.service`. A push to `main` then runs `.github/workflows/deploy.yml` on this machine: stop the graph, fast-forward the shared clone, `colcon build --packages-select franco`, start the graph. The job does not restart the runner.
+
+No GitHub password is stored for `dario`. The runner keeps its own credential files in `/srv/franco/actions-runner`. The repository is public, so `git fetch` does not need a personal access token.

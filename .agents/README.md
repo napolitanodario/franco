@@ -1,9 +1,7 @@
 # Agent notes
 
-This directory holds the project notes that are easy to miss from the code alone.
+These notes describe the ROS 2 graph as it is now. The reader-facing summary is the README at the repository root. The rationale is `docs/design.md`.
 
-- [architecture.md](architecture.md) explains the capture thread, the web page, and the default resolution.
-- [raspberry-pi.md](raspberry-pi.md) explains how to build the official Python SDK on this Raspberry Pi 4 and how to reach the page over Wi-Fi.
-- [ros2.md](ros2.md) explains why this experiment is not a ROS 2 graph yet, and how the current roles map onto one.
-
-The reader-facing summary is the `README.md` at the repository root.
+- [architecture.md](architecture.md) explains the processes, the topics, and what each node is allowed to touch.
+- [raspberry-pi.md](raspberry-pi.md) explains this Raspberry Pi 4: users, paths, packages, systemd, and the runner.
+- [ros2.md](ros2.md) explains the ROS interface: topic names, QoS, parameters, and how to add a node.

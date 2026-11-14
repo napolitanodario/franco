@@ -1,3 +1,10 @@
+# Raise the kernel USB filesystem buffer before the RealSense driver starts.
+#
+# The default buffer is too small for the D415 and the driver then drops
+# transfers. This oneshot writes 128 MB at boot. It is a system unit because
+# the sysfs file is owned by root. Install it once with sudo from the
+# instructions in .agents/raspberry-pi.md.
+
 [Unit]
 Description=Raise usbfs memory for RealSense
 After=systemd-modules-load.service

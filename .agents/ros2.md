@@ -1,13 +1,50 @@
-# ROS 2, later
+# ROS 2 interface
 
-This experiment is one Python process with three roles:
+Distribution: ROS 2 Jazzy on Ubuntu 24.04. The workspace overlay is `/srv/franco/ros2_ws/install`. Load it through `deploy/env.sh`, which also sources `/opt/ros/jazzy/setup.bash`.
 
-- capture reads the D415 and publishes the latest color and depth JPEGs
-- detection reads the latest color image and publishes the latest boxes
-- the web page reads those two results and sends them to browsers
+## Nodes and topics
 
-Those roles are the future ROS 2 graph. Capture becomes a camera node with a color image topic and a depth image topic. Detection becomes a node that subscribes to color and publishes a detection list. The preview becomes a node that subscribes to both. Nothing in the detector imports the camera SDK or Flask, so it can move into its own node without taking the web server with it.
+| Node | Subscribes | Publishes |
+| --- | --- | --- |
+| `realsense2_camera` |  | `/camera/camera/color/image_raw`, `/camera/camera/depth/image_rect_raw`, camera info, TF |
+| `franco_detect` | color image | `/franco/detections` (`vision_msgs/Detection2DArray`) |
+| `franco_preview` | color, depth, `/franco/detections` | none (HTTP on `127.0.0.1:8080`) |
+| `franco_telemetry` | color, `/franco/detections`, `/franco/command/last` | `/diagnostics` |
+| `franco_command` | `/franco/cmd_vel` (`geometry_msgs/Twist`) | `/franco/command/last` |
 
-Debian 13 on this Pi does not ship a ROS 2 distribution. The `ros-*` packages in apt are the ROS 1 stack, and the only ROS 2 package is a test-interface stub. The virtualenv is CPython 3.13. Official ROS 2 releases target Ubuntu and an older Python. Installing that stack into this environment would mix two middlewares on a board that is already serving the camera.
+Image subscriptions use sensor-data QoS (`best effort`, volatile, keep-last). Detection and command input use the default reliable QoS. `/franco/command/last` is reliable, keep-last 1, transient local, so a late subscriber receives the last command.
 
-The practical way to add ROS 2 later is a separate Ubuntu 24.04 container or image with its own ROS 2 install, talking to this camera node over the topics above. The web preview can stay where it is until a ROS 2 viewer replaces it. This experiment does not start that container.
+`Detection2D.results[0].hypothesis.class_id` is the COCO label. `score` is the class confidence. The box center and size are in color-image pixels. `theta` is 0. The detection `id` is empty.
+
+## Launch parameters
+
+`launch/franco.launch.py` passes these to `rs_launch.py`:
+
+- `rgb_camera.color_profile`: `640x480x15`
+- `depth_module.depth_profile`: `640x480x15`
+- `align_depth.enable`: `false`
+- `pointcloud.enable`: `false`
+- `colorizer.enable`: `false`
+
+Detection parameters, set on the node if you run it without the launch file:
+
+- `color_topic` (default `/camera/camera/color/image_raw`)
+- `model_path` (default `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`)
+- `input_size` (320), `confidence` (0.45), `iou` (0.45), `max_detections` (20)
+
+Preview parameters: `color_topic`, `depth_topic` (default `/camera/camera/depth/image_rect_raw`), `port` (8080), `jpeg_quality` (75). `host` is accepted and then forced to `127.0.0.1`.
+
+## Adding a node
+
+Put the new package in `/srv/franco/ros2_ws/src` and add a `Node` action to the launch file only if it should start with the graph. A controller that is still experimental can be launched by hand against the same topics.
+
+Publish velocity commands with:
+
+```bash
+source /srv/franco/ros2_ws/src/franco/deploy/env.sh
+ros2 topic pub --once /franco/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}, angular: {z: 0.0}}"
+```
+
+Read health with `ros2 topic echo /diagnostics`.
+
+Do not publish the preview off the loopback interface from this package. Do not open the camera with pyrealsense2 in a second process while the driver is running.

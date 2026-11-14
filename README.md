@@ -1,45 +1,48 @@
-# RealSense D415 preview
+# franco
 
-This project reads color and depth from an Intel RealSense D415 and serves both images on a small web page. It is meant to run on a Raspberry Pi 4, with the page opened from another device on the same Wi-Fi network.
+Starting ROS 2 graph for an Intel RealSense D415 on a Raspberry Pi 4. The camera driver is the existing `realsense2_camera` package. This repository adds four nodes: YOLO11n detection, a preview bound to loopback, diagnostics, and a command placeholder that does not drive any hardware.
 
-The page is a local preview. One process captures frames and each browser on the LAN watches the latest JPEG.
-
-## Run
-
-From this directory, with the virtual environment activated and `pyrealsense2` built for it:
-
-```bash
-source .venv/bin/activate
-python run.py
-```
-
-Then open `http://<pi-address>:8080`. The process prints the address it detected. Stop it with Ctrl+C.
-
-Useful overrides, all optional:
-
-```bash
-python run.py --port 8080 --width 640 --height 480 --fps 15 --jpeg-quality 75
-```
-
-`/stream/color` and `/stream/depth` are the MJPEG streams. `/status` is a JSON snapshot of the capture thread.
-
-## Always on
-
-`deploy/realsense-preview.service` is the systemd unit that keeps the page on port 8080 across reboots and crashes. `deploy/realsense-usbfs.service` raises the USB buffer the camera needs. Install steps and the status checks are in `.agents/raspberry-pi.md`. Every route asks for HTTP Basic Auth. The default user and password are both `franco`. Override them with `STREAM_USERNAME` and `STREAM_PASSWORD`. The process serves the preview, the two streams, and `/status`. It has no shell and no file access.
+The preview is only on `127.0.0.1:8080`. It is not published on the LAN and it is not exposed through a tunnel.
 
 ## Layout
 
 ```text
-run.py                         Process entry point
-realsense_web/config.py        Command line settings
-realsense_web/camera.py        RealSense capture thread
-realsense_web/server.py        HTTP page and streams
-realsense_web/templates/       Preview page
-.agents/                       Design notes and the Pi setup
+franco/                  Python nodes
+launch/franco.launch.py  Starts the driver and the four nodes
+deploy/                  systemd units and the runner registration script
+docs/design.md           Why the graph is shaped this way
+.agents/                 Notes for this machine and for the ROS graph
+models/yolo11n.onnx      Weights, not committed
 ```
 
-## Setup on this Pi
+## Run
 
-Python dependencies for the web server live in `.venv`. The RealSense SDK does not. PyPI has no `pyrealsense2` build for CPython 3.13 on aarch64, so the wrapper is compiled from librealsense into this same virtual environment.
+From a shell that can see the workspace:
 
-The build, udev rules, and USB notes are in `.agents/raspberry-pi.md`. How the threads and the page fit together is in `.agents/architecture.md`.
+```bash
+source /srv/franco/ros2_ws/src/franco/deploy/env.sh
+ros2 launch franco franco.launch.py
+```
+
+On the Pi itself, open `http://127.0.0.1:8080`. From another machine, forward the port over SSH and open the same address locally:
+
+```bash
+ssh -L 8080:127.0.0.1:8080 franco@<pi>
+```
+
+Stop the launch with Ctrl+C. One graph at a time: a second launch cannot open the camera.
+
+## Topics
+
+| Topic | Type | Role |
+| --- | --- | --- |
+| `/camera/camera/color/image_raw` | `sensor_msgs/Image` | Color from the driver |
+| `/camera/camera/depth/image_rect_raw` | `sensor_msgs/Image` | Depth in millimeters |
+| `/franco/detections` | `vision_msgs/Detection2DArray` | YOLO11n boxes |
+| `/diagnostics` | `diagnostic_msgs/DiagnosticArray` | Camera rate, detection count, last command, USB buffer |
+| `/franco/cmd_vel` | `geometry_msgs/Twist` | Command input, not connected to motors |
+| `/franco/command/last` | `geometry_msgs/Twist` | Last command, latched |
+
+## Service
+
+`deploy/franco.service` is a user unit for the `franco` account. Install steps, the USB buffer unit, and the self-hosted runner are in `.agents/raspberry-pi.md`. The design notes are in `docs/design.md`.
