@@ -39,6 +39,12 @@ Stop the launch with Ctrl+C. One graph at a time: a second launch cannot open th
 | `/franco/cmd_vel` | `geometry_msgs/Twist` | Command input, not connected to motors |
 | `/franco/command/last` | `geometry_msgs/Twist` | Last command, latched |
 
+Detection results are published once per completed, fresh inference. Missing models
+and failures appear on `/diagnostics`; an empty result means inference succeeded.
+The preview defaults to 5 fps per stream and hides boxes older than 2 seconds.
+
+With the ROS dependencies available, run `python3 -m unittest discover -s test -v`.
+
 ## Service
 
 `deploy/franco.service` is a user unit for the `franco` account. The machine, the USB buffer, and the runner are described in `.agents/raspberry-pi.md`. The design notes are in `docs/design.md`.

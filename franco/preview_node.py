@@ -10,8 +10,10 @@
 
 from __future__ import annotations
 
+import math
 import socket
 import threading
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -26,6 +28,7 @@ from sensor_msgs.msg import Image as ImageMsg
 from vision_msgs.msg import Detection2DArray
 
 from franco.runtime import spin_until_shutdown
+from franco.health import is_fresh
 
 _BOUNDARY = "frame"
 _LAN = "0.0.0.0"
@@ -53,10 +56,21 @@ class PreviewNode(Node):
         self.declare_parameter("port", 8080)
         self.declare_parameter("jpeg_quality", 75)
         self.declare_parameter("host", _LAN)
+        self.declare_parameter("preview_fps", 5.0)
+        self.declare_parameter("detection_timeout", 2.0)
 
         self._host = self.get_parameter("host").get_parameter_value().string_value or _LAN
         self._port = int(self.get_parameter("port").value)
         self._quality = int(self.get_parameter("jpeg_quality").value)
+        fps = float(self.get_parameter("preview_fps").value)
+        self._detection_timeout = float(self.get_parameter("detection_timeout").value)
+        if not math.isfinite(fps) or fps <= 0:
+            raise ValueError("preview_fps must be finite and positive.")
+        if not math.isfinite(self._detection_timeout) or self._detection_timeout <= 0:
+            raise ValueError("detection_timeout must be finite and positive.")
+        self._frame_period = 1.0 / fps
+        self._last_color_encode: float | None = None
+        self._last_depth_encode: float | None = None
         self._bridge = CvBridge()
         self._condition = threading.Condition()
         self._color_id = 0
@@ -64,6 +78,8 @@ class PreviewNode(Node):
         self._color_jpeg: bytes | None = None
         self._depth_jpeg: bytes | None = None
         self._boxes: tuple[tuple[int, int, int, int, str, float], ...] = ()
+        self._boxes_stamp: float | None = None
+        self._boxes_frame = ""
         self._color_count = 0
         self._depth_count = 0
 
@@ -110,22 +126,31 @@ class PreviewNode(Node):
             return {
                 "color_frames": self._color_count,
                 "depth_frames": self._depth_count,
-                "detections": len(self._boxes),
+                "detections": len(self._fresh_boxes(self.get_clock().now().nanoseconds / 1e9)),
                 "port": self._port,
             }
 
     def _on_color(self, msg: ImageMsg) -> None:
         """Encode the color image with the latest boxes drawn on it.
 
-        msg is the driver color image. Boxes come from the detection topic and
-        may be a frame or two old. The preview does not wait for a matching
-        detection, same as the first prototype.
+        Boxes must be fresh and use the same optical frame. The preview does
+        not synchronize images to inference results.
         """
 
+        now = time.monotonic()
+        if self._last_color_encode is not None and now - self._last_color_encode < self._frame_period:
+            return
         rgb = self._bridge.imgmsg_to_cv2(msg, desired_encoding="rgb8")
         with self._condition:
-            boxes = self._boxes
+            boxes = self._fresh_boxes(self.get_clock().now().nanoseconds / 1e9)
+            stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
+            if msg.header.frame_id != self._boxes_frame or (
+                self._boxes_stamp is not None
+                and not is_fresh(self._boxes_stamp, stamp, self._detection_timeout)
+            ):
+                boxes = ()
         jpeg = _encode_rgb(rgb, self._quality, boxes)
+        self._last_color_encode = now
         with self._condition:
             self._color_jpeg = jpeg
             self._color_count += 1
@@ -141,8 +166,12 @@ class PreviewNode(Node):
         near and far setting.
         """
 
+        now = time.monotonic()
+        if self._last_depth_encode is not None and now - self._last_depth_encode < self._frame_period:
+            return
         depth = self._bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
         jpeg = _encode_rgb(_colorize_depth(np.asarray(depth)), self._quality)
+        self._last_depth_encode = now
         with self._condition:
             self._depth_jpeg = jpeg
             self._depth_count += 1
@@ -160,6 +189,17 @@ class PreviewNode(Node):
         boxes = tuple(_box_tuple(detection) for detection in msg.detections)
         with self._condition:
             self._boxes = boxes
+            self._boxes_stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
+            self._boxes_frame = msg.header.frame_id
+
+    def _fresh_boxes(self, now: float):
+        """Read under _condition; old or future detections are never overlaid."""
+
+        if self._boxes_stamp is None or not is_fresh(
+            self._boxes_stamp, now, self._detection_timeout
+        ):
+            return ()
+        return self._boxes
 
     def _serve(self) -> None:
         """Run the Flask development server until the process exits.

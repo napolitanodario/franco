@@ -3,8 +3,9 @@
 # It is not a system unit and it does not run as dario. systemd --user starts
 # it after linger is enabled, so the graph comes back at boot without a login.
 # The process sources deploy/env.sh and then launches the graph. Restart=always
-# covers a camera disconnect: the driver exits, and the whole graph is started
-# again five seconds later.
+# restarts the graph after the launch exits. The launch shuts down on a component
+# process exit. A connected process with stale data is reported by diagnostics;
+# it is not automatically restarted.
 
 [Unit]
 Description=Franco ROS 2 graph

@@ -6,8 +6,8 @@
 # model code replaceable when the graph grows past this first prototype.
 #
 # The weights file is models/yolo11n.onnx in the repository. It is not part of
-# the git history. If the file is absent, the node still runs and publishes an
-# empty detection list.
+# the git history. If the file is absent, the node reports an error rather than
+# publishing a fabricated detection result.
 
 from __future__ import annotations
 
@@ -66,7 +66,10 @@ class YoloDetector:
     and the preview still get CPU time on a Raspberry Pi 4.
     """
 
-    def __init__(self, model_path: Path, input_size: int, confidence: float, iou: float) -> None:
+    def __init__(
+        self, model_path: Path, input_size: int, confidence: float, iou: float,
+        *, class_agnostic_nms: bool = False,
+    ) -> None:
         """Store the settings. The session is created in load(), not here.
 
         model_path points at the onnx file. input_size is the square side in
@@ -78,6 +81,7 @@ class YoloDetector:
         self._input_size = input_size
         self._confidence = confidence
         self._iou = iou
+        self._class_agnostic_nms = class_agnostic_nms
         self._session = None
         self._input_name = ""
 
@@ -86,7 +90,7 @@ class YoloDetector:
 
         Raises FileNotFoundError when the weights are missing, and whatever
         onnxruntime raises when the file is not a usable model. The caller
-        treats both as "run without detections" so the rest of the graph stays up.
+        reports either failure through diagnostics while the rest of the graph stays up.
         """
 
         import onnxruntime as ort
@@ -138,7 +142,8 @@ class YoloDetector:
         xyxy[:, [1, 3]] = np.clip(xyxy[:, [1, 3]], 0, height - 1)
 
         found: list[Box] = []
-        for index in _nms(xyxy, confidence, self._iou)[:limit]:
+        nms_classes = None if self._class_agnostic_nms else class_ids
+        for index in _nms(xyxy, confidence, self._iou, nms_classes)[:limit]:
             x1, y1, x2, y2 = xyxy[index]
             if x2 - x1 < 2 or y2 - y1 < 2:
                 continue
@@ -192,12 +197,16 @@ def _letterbox(rgb: np.ndarray, size: int) -> tuple[np.ndarray, float, int, int]
     return blob, scale, pad_x, pad_y
 
 
-def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int]:
+def _nms(
+    boxes: np.ndarray, scores: np.ndarray, iou_threshold: float,
+    class_ids: np.ndarray | None = None,
+) -> list[int]:
     """Greedy non-maximum suppression.
 
     boxes are corner boxes, scores are the matching confidences, and
     iou_threshold is the overlap above which a lower-scoring box is dropped.
-    Returns indexes into boxes, highest score first.
+    Returns indexes into boxes, highest score first. When class_ids is supplied,
+    only overlapping boxes of the same class suppress one another.
     """
 
     order = scores.argsort()[::-1]
@@ -224,5 +233,8 @@ def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[in
             out=np.zeros_like(intersection),
             where=union > 0,
         )
-        order = rest[iou <= iou_threshold]
+        suppress = iou > iou_threshold
+        if class_ids is not None:
+            suppress &= class_ids[rest] == class_ids[current]
+        order = rest[~suppress]
     return keep

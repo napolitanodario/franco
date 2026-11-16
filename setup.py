@@ -36,6 +36,7 @@ setup(
     ],
     package_data={"franco": ["templates/*.html"]},
     install_requires=["setuptools"],
+    tests_require=["pytest"],
     zip_safe=False,
     maintainer="Dario Napolitano",
     maintainer_email="darionapo2.0@gmail.com",

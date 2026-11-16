@@ -7,9 +7,9 @@ Distribution: ROS 2 Jazzy on Ubuntu 24.04. The workspace overlay is `/srv/franco
 | Node | Subscribes | Publishes |
 | --- | --- | --- |
 | `realsense2_camera` |  | `/camera/camera/color/image_raw`, `/camera/camera/depth/image_rect_raw`, camera info, TF |
-| `franco_detect` | color image | `/franco/detections` (`vision_msgs/Detection2DArray`) |
+| `franco_detect` | color image | `/franco/detections` (`vision_msgs/Detection2DArray`), `/diagnostics` |
 | `franco_preview` | color, depth, `/franco/detections` | none (HTTP on `0.0.0.0:8080`) |
-| `franco_telemetry` | color, `/franco/detections`, `/franco/command/last` | `/diagnostics` |
+| `franco_telemetry` | color, `/franco/command/last` | `/diagnostics` |
 | `franco_command` | `/franco/cmd_vel` (`geometry_msgs/Twist`) | `/franco/command/last` |
 
 Image subscriptions use sensor-data QoS (`best effort`, volatile, keep-last). Detection and command input use the default reliable QoS. `/franco/command/last` is reliable, keep-last 1, transient local, so a late subscriber receives the last command.
@@ -31,8 +31,15 @@ Detection parameters, set on the node if you run it without the launch file:
 - `color_topic` (default `/camera/camera/color/image_raw`)
 - `model_path` (default `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`)
 - `input_size` (320), `confidence` (0.45), `iou` (0.45), `max_detections` (20)
+- `result_timeout` (2.0 seconds), `class_agnostic_nms` (false)
 
 Preview parameters: `color_topic`, `depth_topic` (default `/camera/camera/depth/image_rect_raw`), `port` (8080), `jpeg_quality` (75), `host` (default `0.0.0.0`, every interface).
+`preview_fps` defaults to 5.0 per stream and `detection_timeout` to 2.0 seconds.
+Parameters configure startup; restart the node to apply changes.
+
+Detection publishes each fresh result once. Empty lists mean successful inference;
+unavailable models, errors and expired results are reported by the detector's
+`franco_detect` diagnostic status, not synthesized by telemetry.
 
 ## Adding a node
 

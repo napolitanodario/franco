@@ -2,9 +2,10 @@
 #
 # Publishes a diagnostic_msgs/DiagnosticArray on /diagnostics once a second.
 # The array has one status for the camera images this graph is receiving, one
-# for the latest detection count, one for the last command, and one for the
-# USB filesystem buffer the RealSense driver needs. Nothing here commands the
-# camera or a robot. A later monitor can subscribe to /diagnostics without a
+# for the last command, and one for the USB filesystem buffer the RealSense
+# driver needs. The detector publishes its own status on the same topic.
+# Nothing here commands the camera or a robot. A later monitor can subscribe
+# to /diagnostics without a
 # new topic being invented for each signal.
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import Image
-from vision_msgs.msg import Detection2DArray
 
 from franco.runtime import spin_until_shutdown
 
@@ -29,8 +29,8 @@ class TelemetryNode(Node):
     """Collects a few counters and publishes them as diagnostics.
 
     Camera rate is estimated from the color images that arrive between two
-    publishes. Detection count and the last Twist are whatever those topics
-    last said. The USB buffer is read from sysfs.
+    publishes. The last Twist is whatever its topic last said. The USB buffer
+    is read from sysfs.
     """
 
     def __init__(self) -> None:
@@ -48,14 +48,12 @@ class TelemetryNode(Node):
 
         self._color_count = 0
         self._window = 0
-        self._detections = 0
         self._has_command = False
         self._linear_x = 0.0
         self._angular_z = 0.0
 
         self._publisher = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
         self.create_subscription(Image, color_topic, self._on_color, qos_profile_sensor_data)
-        self.create_subscription(Detection2DArray, "/franco/detections", self._on_detections, 10)
         command_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
@@ -72,11 +70,6 @@ class TelemetryNode(Node):
         self._color_count += 1
         self._window += 1
 
-    def _on_detections(self, msg: Detection2DArray) -> None:
-        """Remember how many boxes were in the latest detection message."""
-
-        self._detections = len(msg.detections)
-
     def _on_command(self, msg: Twist) -> None:
         """Remember the linear x and angular z of the latest command.
 
@@ -89,7 +82,7 @@ class TelemetryNode(Node):
         self._angular_z = float(msg.angular.z)
 
     def _publish(self) -> None:
-        """Publish one DiagnosticArray covering camera, detection, command, and USB.
+        """Publish one DiagnosticArray covering camera, command, and USB.
 
         The color window is reset after the publish, so the reported rate is
         the count over the last second. A silent camera is WARN. A USB buffer
@@ -101,7 +94,6 @@ class TelemetryNode(Node):
         rate = float(self._window)
         self._window = 0
         array.status.append(self._camera_status(rate))
-        array.status.append(self._detection_status())
         array.status.append(self._command_status())
         array.status.append(self._usbfs_status())
         self._publisher.publish(array)
@@ -130,16 +122,6 @@ class TelemetryNode(Node):
             KeyValue(key="hz", value=f"{rate:.1f}"),
             KeyValue(key="frames", value=str(self._color_count)),
         ]
-        return status
-
-    def _detection_status(self) -> DiagnosticStatus:
-        """Build the detection status from the latest box count."""
-
-        status = DiagnosticStatus()
-        status.name = "franco_detect"
-        status.level = DiagnosticStatus.OK
-        status.message = "Latest detection list received."
-        status.values = [KeyValue(key="count", value=str(self._detections))]
         return status
 
     def _command_status(self) -> DiagnosticStatus:

@@ -13,7 +13,7 @@ Two login accounts matter. `dario` is the administrator and the only member of `
 - Python prefix for `onnxruntime`: `/srv/franco/python-deps`
 - YOLO weights: `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`
 
-Place the weights file by hand. It is listed in `.gitignore`. The detection node starts without it and publishes no boxes.
+Place the weights file by hand. It is listed in `.gitignore`. Without it, the detector reports ERROR on `/diagnostics` and publishes no detection results.
 
 ## Packages
 

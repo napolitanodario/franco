@@ -10,9 +10,19 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import EmitEvent, IncludeLaunchDescription, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
+
+
+def shutdown_on_exit(event, context):
+    """An unexpected component exit stops the graph; systemd restarts it."""
+
+    if context.is_shutdown:
+        return []
+    return [EmitEvent(event=Shutdown(reason="A graph component exited (%s)." % event.returncode))]
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -44,6 +54,7 @@ def generate_launch_description() -> LaunchDescription:
     )
     return LaunchDescription(
         [
+            RegisterEventHandler(OnProcessExit(on_exit=shutdown_on_exit)),
             driver,
             Node(package="franco", executable="detect", name="franco_detect", output="screen"),
             Node(package="franco", executable="preview", name="franco_preview", output="screen"),
