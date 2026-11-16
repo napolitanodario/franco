@@ -6,6 +6,7 @@
 # real PID and a stop signal reaches the nodes.
 
 set -eu
+franco_deploy_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source /srv/franco/ros2_ws/src/franco/deploy/env.sh
-exec ros2 launch franco franco.launch.py
+source "$franco_deploy_dir/env.sh"
+exec ros2 launch franco_bringup bench.launch.py "$@"

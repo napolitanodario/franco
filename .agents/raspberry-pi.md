@@ -1,5 +1,7 @@
 # Raspberry Pi 4
 
+Observed bench setup before the monorepo migration. The new source layout has not been deployed. The paths and runner workflow below describe that existing installation.
+
 This machine is a Raspberry Pi 4, 8 GB, Ubuntu 24.04 aarch64, ROS 2 Jazzy. librealsense is installed under `/usr/local` with the userspace USB backend, so the stock kernel is enough. The D415 must use a USB 3 port and a USB 3 cable.
 
 Two login accounts matter. `dario` is the administrator and the only member of `sudo`. `franco` is the account for collaborators and for the deploy runner. It is not in `sudo`. Both are in the `dev` group. The shared tree is `/srv/franco`, group `dev`, setgid.
@@ -7,7 +9,7 @@ Two login accounts matter. `dario` is the administrator and the only member of `
 ## Paths
 
 - Workspace: `/srv/franco/ros2_ws`
-- This package: `/srv/franco/ros2_ws/src/franco`
+- Repository checkout: `/srv/franco/ros2_ws/src/franco`
 - RealSense ROS driver: `/srv/franco/ros2_ws/src/realsense-ros`
 - Actions runner: `/srv/franco/actions-runner`
 - Python prefix for `onnxruntime`: `/srv/franco/python-deps`

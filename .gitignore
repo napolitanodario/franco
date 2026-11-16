@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 *.log
 models/*.onnx
+build/
+install/
+log/

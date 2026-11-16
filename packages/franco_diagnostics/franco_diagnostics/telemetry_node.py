@@ -19,7 +19,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import Image
 
-from franco.runtime import spin_until_shutdown
+from franco_diagnostics.runtime import spin_until_shutdown
 
 _USBFS = Path("/sys/module/usbcore/parameters/usbfs_memory_mb")
 _USBFS_WANTED = 128
@@ -33,7 +33,7 @@ class TelemetryNode(Node):
     is read from sysfs.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         """Subscribe to the three signals and start the one-second timer.
 
         color_topic is the same color image the detector uses. Counting those
@@ -42,8 +42,8 @@ class TelemetryNode(Node):
         by franco_command is visible even if it was published earlier.
         """
 
-        super().__init__("franco_telemetry")
-        self.declare_parameter("color_topic", "/camera/camera/color/image_raw")
+        super().__init__("franco_telemetry", **kwargs)
+        self.declare_parameter("color_topic", "camera/camera/color/image_raw")
         color_topic = self.get_parameter("color_topic").get_parameter_value().string_value
 
         self._color_count = 0
@@ -52,14 +52,14 @@ class TelemetryNode(Node):
         self._linear_x = 0.0
         self._angular_z = 0.0
 
-        self._publisher = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
+        self._publisher = self.create_publisher(DiagnosticArray, "diagnostics", 10)
         self.create_subscription(Image, color_topic, self._on_color, qos_profile_sensor_data)
         command_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
-        self.create_subscription(Twist, "/franco/command/last", self._on_command, command_qos)
+        self.create_subscription(Twist, "franco/command/last", self._on_command, command_qos)
         self.create_timer(1.0, self._publish)
         self.get_logger().info("Telemetry publishing /diagnostics.")
 

@@ -17,10 +17,10 @@ from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 from vision_msgs.msg import Detection2DArray
 
-from franco.detect_node import DetectNode, _to_detection
-from franco.preview_node import PreviewNode
-from franco.telemetry_node import TelemetryNode
-from franco.yolo import Box
+from franco_perception.detect_node import DetectNode, _to_detection
+from franco_tools.preview_node import PreviewNode
+from franco_diagnostics.telemetry_node import TelemetryNode
+from franco_perception.yolo import Box
 
 
 class NodeTests(unittest.TestCase):
@@ -32,18 +32,18 @@ class NodeTests(unittest.TestCase):
     def tearDownClass(cls):
         rclpy.shutdown()
 
-    def detector(self, *, load_error=None, detect_results=None):
-        model = self.enterContext(patch("franco.detect_node.YoloDetector"))
+    def detector(self, *, load_error=None, detect_results=None, **kwargs):
+        model = self.enterContext(patch("franco_perception.detect_node.YoloDetector"))
         model.return_value.load.side_effect = load_error
         model.return_value.detect.side_effect = detect_results
         model.return_value.detect.return_value = []
-        node = DetectNode()
+        node = DetectNode(**kwargs)
         self.addCleanup(node.destroy_node)
         return node
 
     def preview(self):
         self.enterContext(patch.object(PreviewNode, "_serve"))
-        self.enterContext(patch("franco.preview_node._ipv4_addresses", return_value=[]))
+        self.enterContext(patch("franco_tools.preview_node._ipv4_addresses", return_value=[]))
         node = PreviewNode()
         self.addCleanup(node.destroy_node)
         return node
@@ -120,14 +120,20 @@ class NodeTests(unittest.TestCase):
     def test_preview_caps_color_and_depth_independently(self):
         node = self.preview()
         color, depth = self.image(node), self.image(node, depth=True)
-        with patch("franco.preview_node.time.monotonic", side_effect=[10, 10.05, 10.3]):
+        with patch("franco_tools.preview_node.time.monotonic", side_effect=[10, 10.05, 10.3]):
             for _ in range(3):
                 node._on_color(color)
-        with patch("franco.preview_node.time.monotonic", side_effect=[10, 10.05, 10.3]):
+        with patch("franco_tools.preview_node.time.monotonic", side_effect=[10, 10.05, 10.3]):
             for _ in range(3):
                 node._on_depth(depth)
         self.assertEqual(node.status()["color_frames"], 2)
         self.assertEqual(node.status()["depth_frames"], 2)
+
+    def test_preview_serves_the_installed_template(self):
+        response = self.preview()._app.test_client().get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"/stream/color", response.data)
+        self.assertIn(b"/stream/depth", response.data)
 
     def test_preview_omits_stale_and_wrong_frame_boxes(self):
         node = self.preview()
@@ -141,18 +147,18 @@ class NodeTests(unittest.TestCase):
                 result.detections = [_to_detection(result.header, Box(1, 1, 6, 6, "person", 0.9))]
                 node._on_detections(result)
                 node._last_color_encode = None
-                with patch("franco.preview_node._encode_rgb", return_value=b"jpeg") as encode:
+                with patch("franco_tools.preview_node._encode_rgb", return_value=b"jpeg") as encode:
                     node._on_color(self.image(node))
                 self.assertEqual(bool(encode.call_args.args[2]), expected)
 
     def test_synthetic_frame_produces_one_result_and_health_over_ros(self):
-        node = self.detector()
+        node = self.detector(namespace="bench")
         observer = Node("franco_test_observer")
         self.addCleanup(observer.destroy_node)
         results, statuses = [], []
         _subscriptions = [
-            observer.create_subscription(Detection2DArray, "/franco/detections", results.append, 10),
-            observer.create_subscription(DiagnosticArray, "/diagnostics", statuses.append, 10),
+            observer.create_subscription(Detection2DArray, "/bench/franco/detections", results.append, 10),
+            observer.create_subscription(DiagnosticArray, "/bench/diagnostics", statuses.append, 10),
         ]
         executor = SingleThreadedExecutor()
         executor.add_node(node)

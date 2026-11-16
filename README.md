@@ -1,50 +1,35 @@
-# franco
+# Franco
 
-Starting ROS 2 graph for an Intel RealSense D415 on a Raspberry Pi 4. The camera driver is the existing `realsense2_camera` package. This repository adds four nodes: YOLO11n detection, a preview on the local network, diagnostics, and a command placeholder that does not drive any hardware.
+ROS 2 autonomy software, currently focused on a Raspberry Pi 4 / RealSense perception bench.
 
-The preview listens on port 8080 on every interface. A phone or laptop on the same Wi-Fi opens `http://<pi-address>:8080`. It is not exposed through a tunnel.
+Packages live under `packages/`. Planned packages are added when their implementation starts.
 
-## Layout
+| Package | Responsibility | Status |
+| --- | --- | --- |
+| `franco_perception` | Object detection and inference | Current |
+| `franco_diagnostics` | Component health and shared lifecycle helpers | Current |
+| `franco_tools` | Camera preview and bench utilities | Current |
+| `franco_bringup` | Launch files and hardware profiles | Current |
+| `franco_description` | Robot model, sensor mounting and TF frames | Planned |
+| `franco_base` | Motor-controller interface, encoders and wheel odometry | Planned |
+| `franco_localization` | Pose estimation and sensor fusion | Planned |
+| `franco_navigation` | Navigation goals and path planning | Planned |
+| `franco_control` | Trajectory following and velocity commands | Planned |
+| `franco_motion_guard` | Command arbitration, timeouts and motion enable | Planned |
+| `franco_interfaces` | Custom ROS interfaces when standard types are insufficient | As needed |
 
-```text
-franco/                  Python nodes
-launch/franco.launch.py  Starts the driver and the four nodes
-deploy/                  systemd units and the runner registration script
-docs/design.md           Why the graph is shaped this way
-.agents/                 Notes for this machine and for the ROS graph
-models/yolo11n.onnx      Weights, not committed
-```
+Project packages share this repository. The RealSense driver, SDK and model weights are external.
 
-## Run
-
-From a shell that can see the workspace:
+With ROS Jazzy and dependencies available, from this repository:
 
 ```bash
-source /srv/franco/ros2_ws/src/franco/deploy/env.sh
-ros2 launch franco franco.launch.py
+colcon build --base-paths packages
+source install/setup.bash
+colcon test --base-paths packages --return-code-on-test-failure
+colcon test-result
+ros2 launch franco_bringup bench.launch.py model_path:=/absolute/path/yolo11n.onnx
 ```
 
-On the Pi itself, open `http://127.0.0.1:8080`. From another device on the Wi-Fi, open `http://<pi-address>:8080`. The launch log prints the addresses it detected.
-
-Stop the launch with Ctrl+C. One graph at a time: a second launch cannot open the camera.
-
-## Topics
-
-| Topic | Type | Role |
-| --- | --- | --- |
-| `/camera/camera/color/image_raw` | `sensor_msgs/Image` | Color from the driver |
-| `/camera/camera/depth/image_rect_raw` | `sensor_msgs/Image` | Depth in millimeters |
-| `/franco/detections` | `vision_msgs/Detection2DArray` | YOLO11n boxes |
-| `/diagnostics` | `diagnostic_msgs/DiagnosticArray` | Camera rate, detection count, last command, USB buffer |
-| `/franco/cmd_vel` | `geometry_msgs/Twist` | Command input, not connected to motors |
-| `/franco/command/last` | `geometry_msgs/Twist` | Last command, latched |
-
-Detection results are published once per completed, fresh inference. Missing models
-and failures appear on `/diagnostics`; an empty result means inference succeeded.
-The preview defaults to 5 fps per stream and hides boxes older than 2 seconds.
-
-With the ROS dependencies available, run `python3 -m unittest discover -s test -v`.
-
-## Service
-
-`deploy/franco.service` is a user unit for the `franco` account. The machine, the USB buffer, and the runner are described in `.agents/raspberry-pi.md`. The design notes are in `docs/design.md`.
+The installed `config/bench.yaml` configures the camera, inference and preview.
+Override it with `config:=/path/bench.yaml`; use `namespace:=bench_a` for an isolated graph.
+`FRANCO_MODEL_PATH` can supply the model path. Missing weights produce an ERROR diagnostic.

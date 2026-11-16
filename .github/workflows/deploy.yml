@@ -2,7 +2,7 @@
 #
 # GitHub-hosted runners are not on the tailnet, so this job runs on the
 # self-hosted runner registered as the franco user. The job updates the clone
-# in /srv/franco/ros2_ws/src/franco, builds that package, and restarts the
+# in /srv/franco/ros2_ws/src/franco, builds the project packages, and restarts the
 # graph. It does not restart the runner service.
 
 name: Deploy
@@ -29,6 +29,9 @@ jobs:
           # setuptools copies package data with chmod and utime. The kernel
           # allows that only for the file owner, so a tree left by dario makes
           # this franco job fail with "Operation not permitted".
-          rm -rf build/franco install/franco
-          colcon build --packages-select franco --cmake-args -DCMAKE_BUILD_TYPE=Release
+          packages=(franco_diagnostics franco_perception franco_tools franco_bringup)
+          for package in franco "${packages[@]}"; do
+            rm -rf "build/$package" "install/$package"
+          done
+          colcon build --packages-select "${packages[@]}"
           systemctl --user start franco.service

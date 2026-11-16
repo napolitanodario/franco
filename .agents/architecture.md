@@ -1,6 +1,8 @@
 # Architecture
 
-Five processes, one camera owner.
+Four ROS packages, five processes, one camera owner.
+
+`franco_perception` owns detection; `franco_diagnostics` owns telemetry and shared health/lifecycle helpers; `franco_tools` owns preview and the command monitor. `franco_bringup` depends on those packages and the external camera driver. The dependency graph has no cycles.
 
 `realsense2_camera` is the only process that opens the D415. It publishes color on `/camera/camera/color/image_raw` and depth on `/camera/camera/depth/image_rect_raw`. Depth values are millimeters in a 16-bit image. The launch file asks for 640x480 at 15 fps and leaves alignment, the point cloud, and the driver colorizer off.
 
@@ -14,4 +16,4 @@ Five processes, one camera owner.
 
 The preview does not wait for matching detection timestamps, but rejects expired boxes and different optical frames. JPEG encoding is capped at `preview_fps` per stream. Unexpected component process exits shut down the launch for systemd to restart; stale data from a live process is reported through diagnostics.
 
-Shared files live in `/srv/franco/ros2_ws`. The `franco` package source is `/srv/franco/ros2_ws/src/franco`. `realsense-ros` is a sibling checkout, not a copy inside this repository.
+Sources live under `packages/`; each directory is an independent ament_python package. The installed `franco_bringup/config/bench.yaml` and `bench.launch.py` compose the graph. Topic names are relative so namespace isolation works. The external RealSense driver is reused through its vendor launch, without a version change. The Raspberry has not been migrated by this source change.

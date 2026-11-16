@@ -1,0 +1,32 @@
+camera:
+  camera_namespace: camera
+  camera_name: camera
+  serial_no: ""
+  enable_color: true
+  enable_depth: true
+  rgb_camera.color_profile: 640x480x15
+  depth_module.depth_profile: 640x480x15
+  align_depth.enable: false
+  pointcloud.enable: false
+  colorizer.enable: false
+  enable_gyro: false
+  enable_accel: false
+
+perception:
+  model_path: ""
+  input_size: 320
+  confidence: 0.45
+  iou: 0.45
+  max_detections: 20
+  result_timeout: 2.0
+  class_agnostic_nms: false
+
+preview:
+  host: 0.0.0.0
+  port: 8080
+  jpeg_quality: 75
+  preview_fps: 5.0
+  detection_timeout: 2.0
+
+diagnostics: {}
+command: {}

@@ -27,8 +27,8 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image as ImageMsg
 from vision_msgs.msg import Detection2DArray
 
-from franco.runtime import spin_until_shutdown
-from franco.health import is_fresh
+from franco_diagnostics.runtime import spin_until_shutdown
+from franco_diagnostics.health import is_fresh
 
 _BOUNDARY = "frame"
 _LAN = "0.0.0.0"
@@ -41,7 +41,7 @@ class PreviewNode(Node):
     on that condition, so a slow browser does not change what the camera does.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         """Subscribe, encode, and start the page.
 
         color_topic and depth_topic come from realsense2_camera. host is the
@@ -50,9 +50,9 @@ class PreviewNode(Node):
         quality from 1 to 95.
         """
 
-        super().__init__("franco_preview")
-        self.declare_parameter("color_topic", "/camera/camera/color/image_raw")
-        self.declare_parameter("depth_topic", "/camera/camera/depth/image_rect_raw")
+        super().__init__("franco_preview", **kwargs)
+        self.declare_parameter("color_topic", "camera/camera/color/image_raw")
+        self.declare_parameter("depth_topic", "camera/camera/depth/image_rect_raw")
         self.declare_parameter("port", 8080)
         self.declare_parameter("jpeg_quality", 75)
         self.declare_parameter("host", _LAN)
@@ -87,7 +87,7 @@ class PreviewNode(Node):
         depth_topic = self.get_parameter("depth_topic").get_parameter_value().string_value
         self.create_subscription(ImageMsg, color_topic, self._on_color, qos_profile_sensor_data)
         self.create_subscription(ImageMsg, depth_topic, self._on_depth, qos_profile_sensor_data)
-        self.create_subscription(Detection2DArray, "/franco/detections", self._on_detections, 10)
+        self.create_subscription(Detection2DArray, "franco/detections", self._on_detections, 10)
 
         template_folder = str(_template_directory())
         self._app = _build_app(self, template_folder)

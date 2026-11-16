@@ -16,7 +16,7 @@ from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 
-from franco.runtime import spin_until_shutdown
+from franco_diagnostics.runtime import spin_until_shutdown
 
 
 class CommandNode(Node):
@@ -27,18 +27,18 @@ class CommandNode(Node):
     instead of waiting for the next one.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         """Subscribe to /franco/cmd_vel and advertise /franco/command/last."""
 
-        super().__init__("franco_command")
+        super().__init__("franco_command", **kwargs)
         last_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
-        self._last = self.create_publisher(Twist, "/franco/command/last", last_qos)
-        self.create_subscription(Twist, "/franco/cmd_vel", self._on_command, 10)
-        self.get_logger().info("Command placeholder listening on /franco/cmd_vel.")
+        self._last = self.create_publisher(Twist, "franco/command/last", last_qos)
+        self.create_subscription(Twist, "franco/cmd_vel", self._on_command, 10)
+        self.get_logger().info("Command monitor ready; no actuator is connected.")
 
     def _on_command(self, msg: Twist) -> None:
         """Store one Twist and log the two fields a base would use.

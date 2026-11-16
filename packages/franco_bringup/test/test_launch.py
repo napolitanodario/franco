@@ -1,6 +1,5 @@
 """Check graph shutdown with real launch events and harmless child processes."""
 
-import importlib.util
 from pathlib import Path
 import sys
 import time
@@ -15,13 +14,11 @@ except ImportError:
 from launch.actions import EmitEvent, ExecuteProcess, RegisterEventHandler, TimerAction
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
+from ament_index_python.packages import get_package_share_directory
 
+from franco_bringup import bringup as franco_launch
+from franco_bringup.configuration import load_profile
 
-spec = importlib.util.spec_from_file_location(
-    "franco_launch", Path(__file__).resolve().parents[1] / "launch" / "franco.launch.py"
-)
-franco_launch = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(franco_launch)
 
 
 class LaunchTests(unittest.TestCase):
@@ -41,12 +38,13 @@ class LaunchTests(unittest.TestCase):
             TimerAction(period=3.0, actions=[EmitEvent(event=Shutdown(reason="Test timeout"))]),
         ]))
         # Replace hardware/application processes, retaining the actual launch policy.
+        profile = load_profile(Path(get_package_share_directory("franco_bringup")) / "config/bench.yaml")
         with patch.object(franco_launch, "get_package_share_directory", return_value="/tmp"), \
              patch.object(franco_launch, "IncludeLaunchDescription", return_value=sleeper()), \
              patch.object(franco_launch, "Node", side_effect=[
                  TimerAction(period=0.2, actions=[failing]), sleeper(), sleeper(), sleeper(),
              ]):
-            service.include_launch_description(franco_launch.generate_launch_description())
+            service.include_launch_description(LaunchDescription(franco_launch.build_graph(profile)))
         started = time.monotonic()
         service.run()
         self.assertIn(7, exits)

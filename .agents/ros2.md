@@ -1,57 +1,36 @@
 # ROS 2 interface
 
-Distribution: ROS 2 Jazzy on Ubuntu 24.04. The workspace overlay is `/srv/franco/ros2_ws/install`. Load it through `deploy/env.sh`, which also sources `/opt/ros/jazzy/setup.bash`.
+ROS 2 Jazzy. Build the four packages under `packages/` and source the workspace install.
+Launch with `ros2 launch franco_bringup bench.launch.py` and supply model weights.
 
-## Nodes and topics
+| Node | Package | Inputs | Outputs |
+| --- | --- | --- | --- |
+| camera | external `realsense2_camera` | RealSense device | color, depth, camera info, TF |
+| `franco_detect` | `franco_perception` | color | detections, diagnostics |
+| `franco_preview` | `franco_tools` | color, depth, detections | HTTP MJPEG |
+| `franco_telemetry` | `franco_diagnostics` | color, last command | diagnostics |
+| `franco_command` | `franco_tools` | velocity command | last command; no actuation |
 
-| Node | Subscribes | Publishes |
-| --- | --- | --- |
-| `realsense2_camera` |  | `/camera/camera/color/image_raw`, `/camera/camera/depth/image_rect_raw`, camera info, TF |
-| `franco_detect` | color image | `/franco/detections` (`vision_msgs/Detection2DArray`), `/diagnostics` |
-| `franco_preview` | color, depth, `/franco/detections` | none (HTTP on `0.0.0.0:8080`) |
-| `franco_telemetry` | color, `/franco/command/last` | `/diagnostics` |
-| `franco_command` | `/franco/cmd_vel` (`geometry_msgs/Twist`) | `/franco/command/last` |
+Default topics in the root namespace remain `/camera/camera/color/image_raw`,
+`/camera/camera/depth/image_rect_raw`, `/franco/detections`, `/diagnostics`,
+`/franco/cmd_vel` and `/franco/command/last`. A launch namespace prefixes the graph.
+Image remappings follow the camera namespace/name in the profile. Give separate
+camera instances unique names (TF frames) and preview ports.
 
-Image subscriptions use sensor-data QoS (`best effort`, volatile, keep-last). Detection and command input use the default reliable QoS. `/franco/command/last` is reliable, keep-last 1, transient local, so a late subscriber receives the last command.
+Images use sensor-data QoS. Detection and command input use reliable QoS.
+The last-command topic is reliable, transient local, depth 1. Detections use
+`vision_msgs/Detection2DArray`: COCO label, score, pixel box and source header;
+no tracking ID or estimated 3D pose.
 
-`Detection2D.results[0].hypothesis.class_id` is the COCO label. `score` is the class confidence. The box center and size are in color-image pixels. `theta` is 0. The detection `id` is empty.
+The installed `config/bench.yaml` is the bench profile. Launch arguments:
+`config`, `namespace`, `model_path`, `with_camera`, `with_preview`.
+`FRANCO_MODEL_PATH` is the default for the model launch argument; a nonempty
+argument overrides the profile. Relative profile model paths resolve beside it.
+`with_camera:=false with_preview:=false` supports tests without hardware or HTTP.
+Node parameters configure startup; restart nodes to apply changes.
 
-## Launch parameters
-
-`launch/franco.launch.py` passes these to `rs_launch.py`:
-
-- `rgb_camera.color_profile`: `640x480x15`
-- `depth_module.depth_profile`: `640x480x15`
-- `align_depth.enable`: `false`
-- `pointcloud.enable`: `false`
-- `colorizer.enable`: `false`
-
-Detection parameters, set on the node if you run it without the launch file:
-
-- `color_topic` (default `/camera/camera/color/image_raw`)
-- `model_path` (default `/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx`)
-- `input_size` (320), `confidence` (0.45), `iou` (0.45), `max_detections` (20)
-- `result_timeout` (2.0 seconds), `class_agnostic_nms` (false)
-
-Preview parameters: `color_topic`, `depth_topic` (default `/camera/camera/depth/image_rect_raw`), `port` (8080), `jpeg_quality` (75), `host` (default `0.0.0.0`, every interface).
-`preview_fps` defaults to 5.0 per stream and `detection_timeout` to 2.0 seconds.
-Parameters configure startup; restart the node to apply changes.
-
-Detection publishes each fresh result once. Empty lists mean successful inference;
-unavailable models, errors and expired results are reported by the detector's
-`franco_detect` diagnostic status, not synthesized by telemetry.
-
-## Adding a node
-
-Put the new package in `/srv/franco/ros2_ws/src` and add a `Node` action to the launch file only if it should start with the graph. A controller that is still experimental can be launched by hand against the same topics.
-
-Publish velocity commands with:
-
-```bash
-source /srv/franco/ros2_ws/src/franco/deploy/env.sh
-ros2 topic pub --once /franco/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}, angular: {z: 0.0}}"
-```
-
-Read health with `ros2 topic echo /diagnostics`.
-
-Do not open the camera with pyrealsense2 in a second process while the driver is running. The preview is already reachable on the local network.
+Each completed, fresh inference is published once. Missing models and inference
+errors produce ERROR diagnostics; expired results produce WARN. The detector owns
+`franco_detect` status, while telemetry owns camera, command and USB statuses.
+The default result/overlay timeout is 2 seconds and preview is capped at 5 fps per
+stream. Unexpected process exit shuts down the graph for systemd to restart it.

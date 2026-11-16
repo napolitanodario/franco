@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>franco_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and configuration for the Franco perception bench.</description>
+  <maintainer email="darionapo2.0@gmail.com">Dario Napolitano</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>franco_perception</exec_depend>
+  <exec_depend>franco_diagnostics</exec_depend>
+  <exec_depend>franco_tools</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

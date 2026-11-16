@@ -29,12 +29,9 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
 )
 
-from franco.runtime import spin_until_shutdown
-from franco.health import DetectionHealth, is_fresh
-from franco.yolo import Box, YoloDetector
-
-_DEFAULT_MODEL = "/srv/franco/ros2_ws/src/franco/models/yolo11n.onnx"
-
+from franco_diagnostics.runtime import spin_until_shutdown
+from franco_diagnostics.health import DetectionHealth, is_fresh
+from franco_perception.yolo import Box, YoloDetector
 
 class DetectNode(Node):
     """ROS 2 wrapper around YoloDetector.
@@ -44,7 +41,7 @@ class DetectNode(Node):
     from the executor rather than from the worker.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         """Declare parameters, open the model when it is present, and subscribe.
 
         Parameters:
@@ -53,9 +50,9 @@ class DetectNode(Node):
         prototype (320 px, 0.45, 0.45). max_detections caps one message.
         """
 
-        super().__init__("franco_detect")
-        self.declare_parameter("color_topic", "/camera/camera/color/image_raw")
-        self.declare_parameter("model_path", _DEFAULT_MODEL)
+        super().__init__("franco_detect", **kwargs)
+        self.declare_parameter("color_topic", "camera/camera/color/image_raw")
+        self.declare_parameter("model_path", "")
         self.declare_parameter("input_size", 320)
         self.declare_parameter("confidence", 0.45)
         self.declare_parameter("iou", 0.45)
@@ -91,8 +88,8 @@ class DetectNode(Node):
             self.get_logger().error(self._health.error)
 
         color_topic = self.get_parameter("color_topic").get_parameter_value().string_value
-        self._publisher = self.create_publisher(Detection2DArray, "/franco/detections", 10)
-        self._status_publisher = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
+        self._publisher = self.create_publisher(Detection2DArray, "franco/detections", 10)
+        self._status_publisher = self.create_publisher(DiagnosticArray, "diagnostics", 10)
         # Best effort accepts both best-effort and reliable image publishers.
         self.create_subscription(Image, color_topic, self._on_image, qos_profile_sensor_data)
         self._worker = threading.Thread(target=self._loop, name="franco-yolo", daemon=True)
