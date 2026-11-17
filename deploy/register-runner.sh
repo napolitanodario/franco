@@ -37,7 +37,6 @@ fi
 unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$unit_dir"
 cp /srv/franco/ros2_ws/src/franco/deploy/franco-runner.service "$unit_dir/franco-runner.service"
-cp /srv/franco/ros2_ws/src/franco/deploy/franco.service "$unit_dir/franco.service"
 systemctl --user daemon-reload
 systemctl --user enable --now franco-runner.service
 echo "Runner service is enabled."

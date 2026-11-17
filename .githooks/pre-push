@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+scratch=$(mktemp -d)
+trap 'rm -rf -- "$scratch"' EXIT
+
+while read -r local_ref local_oid _remote_ref _remote_oid; do
+  # Git reports deletions with an all-zero object ID.
+  if [[ "$local_oid" =~ ^0+$ ]]; then continue; fi
+  commit=$(git rev-parse --verify "$local_oid^{commit}")
+  snapshot="$scratch/$commit"
+  if [[ -d "$snapshot" ]]; then continue; fi
+
+  printf 'Testing %s (%s) before push\n' "$local_ref" "${commit:0:12}" >&2
+  mkdir "$snapshot"
+  git archive "$commit" | tar -xf - -C "$snapshot"
+  if [[ ! -f "$snapshot/ci/run-local.sh" ]]; then
+    printf 'CI test runner is missing from %s.\n' "$local_ref" >&2
+    exit 1
+  fi
+  bash "$snapshot/ci/run-local.sh" </dev/null
+done
