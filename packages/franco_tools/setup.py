@@ -18,5 +18,7 @@ setup(
     maintainer_email='darionapo2.0@gmail.com',
     description='Camera preview and bench command monitor.',
     license='Apache-2.0',
-    entry_points={'console_scripts': ["preview = franco_tools.preview_node:main","command = franco_tools.command_node:main"]},
+    entry_points={'console_scripts': ["preview = franco_tools.preview_node:main",
+                                     "command = franco_tools.command_node:main",
+                                     "check = franco_tools.health_check:main"]},
 )

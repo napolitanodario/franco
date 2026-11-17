@@ -20,16 +20,25 @@ Packages live under `packages/`. Planned packages are added when their implement
 
 Project packages share this repository. The RealSense driver, SDK and model weights are external.
 
-With ROS Jazzy and dependencies available, from this repository:
+With ROS Jazzy, the driver/SDK and ONNX weights available:
 
 ```bash
-colcon build --base-paths packages
-source install/setup.bash
-colcon test --base-paths packages --return-code-on-test-failure
-colcon test-result
-ros2 launch franco_bringup bench.launch.py model_path:=/absolute/path/yolo11n.onnx
+./scripts/franco doctor       # Check dependencies and model
+./scripts/franco build
+./scripts/franco test         # Isolated ROS domain; no hardware tests
+./scripts/franco run bench    # Foreground development; service must be stopped
+./scripts/franco start bench  # Start the installed release
+./scripts/franco status       # Service and fresh ROS data
+./scripts/franco logs
+./scripts/franco preview      # Print preview URLs
+./scripts/franco stop         # Also available: restart, check, rollback
 ```
 
-The installed `config/bench.yaml` configures the camera, inference and preview.
-Override it with `config:=/path/bench.yaml`; use `namespace:=bench_a` for an isolated graph.
-`FRANCO_MODEL_PATH` can supply the model path. Missing weights produce an ERROR diagnostic.
+Enable the shared pre-push hook in each clone with `git config --local core.hooksPath .githooks`.
+It requires Docker and runs the CI test suite against the commits being pushed.
+Require the **CI / test** check on `main` to enforce tests for every contributor.
+
+CI runs on GitHub ARM64 runners. Manual **Bench** accepts a successful main CI run;
+it builds only unless `activate` is selected, then checks live data and rolls back on failure.
+One-time service setup and release behavior: [bench setup](docs/design.md#bench-setup).
+The installed `config/bench.yaml` defines the bench; `FRANCO_CONFIG` can override it.

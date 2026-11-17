@@ -17,3 +17,5 @@ Four ROS packages, five processes, one camera owner.
 The preview does not wait for matching detection timestamps, but rejects expired boxes and different optical frames. JPEG encoding is capped at `preview_fps` per stream. Unexpected component process exits shut down the launch for systemd to restart; stale data from a live process is reported through diagnostics.
 
 Sources live under `packages/`; each directory is an independent ament_python package. The installed `franco_bringup/config/bench.yaml` and `bench.launch.py` compose the graph. Topic names are relative so namespace isolation works. The external RealSense driver is reused through its vendor launch, without a version change. The Raspberry has not been migrated by this source change.
+
+Hosted CI validates changes; the manual main-only Bench workflow prepares or activates a verified source artifact. Releases freeze the profile and model and use atomic current/previous pointers. See `docs/design.md#deploy` for activation, rollback and one-time setup. No Raspberry deployment has been performed.

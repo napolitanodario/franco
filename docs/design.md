@@ -33,6 +33,44 @@ Use the interfaces in `.agents/ros2.md`. Default topic names remain unchanged in
 
 ## Deploy
 
-The Pi is reached over Tailscale. GitHub-hosted runners are not on that network, so deploy runs as a self-hosted runner under the `franco` user. A push to `main` updates `/srv/franco/ros2_ws/src/franco`, builds the four project packages, and restarts the user service. The runner credentials are the runner's own, not a login of the GitHub account that owns the repository.
+`CI` builds and tests on GitHub-hosted ARM64, with ROS tests in an offline container.
+Only successful main runs publish a source archive, commit identity and SHA-256.
+`Bench` is manual and main-only. A hosted verification job checks CI provenance;
+the self-hosted runner downloads that exact artifact ID. PR code never runs on the Pi.
+The default operation prepares a release; activation requires the `activate` input.
 
-This source reorganization has not been deployed to the Raspberry. CI/CD changes are a separate step.
+Releases are built at their final absolute path under `~/.local/share/franco/releases/`.
+The operator profile and weights are copied into each release before it becomes ready.
+Existing prepared releases reuse their frozen settings; use a new revision for changed settings.
+The external SDK/driver is not updated. Only after build succeeds does activation stop
+`franco.service`, atomically switch `current`, start it and check fresh image/detection
+stamps plus diagnostics. Start/check failure restores the previous pointer and service
+state; rollback failure remains an error. `previous` supports manual rollback.
+Concurrent operations are locked. Failed first activation leaves the service stopped.
+
+## Bench setup
+
+These are operator instructions, not steps performed by this change. Protect main
+and require CI/review before enabling the bench workflow. The runner needs its existing
+`franco` label, Linux ARM64, Python 3.12+, colcon, ROS Jazzy and the camera dependencies.
+
+```bash
+mkdir -p ~/.config/franco
+cp deploy/bench.env.example ~/.config/franco/bench.env
+# Edit absolute model/config paths; doctor never installs dependencies.
+./scripts/franco doctor
+./scripts/franco stop
+./scripts/franco install-service
+```
+
+Installation requires a stopped service, preserves an old unit as
+`franco.service.before-franco`, and does not start or enable anything. Prepare/activate
+a passing main CI run through GitHub's manual Bench workflow. After successful first
+activation, `systemctl --user enable franco.service` enables boot startup; user lingering
+must be enabled by the administrator. `FRANCO_STATE_DIR` can select another writable
+release directory before installing the unit. Keep the runner account out of sudo.
+
+For development, `build`/`test` use the local checkout; `run bench` opens the camera in
+the foreground only after the service is stopped. Service commands operate on prepared
+releases. `status`/`check` fail on missing/stale data even when systemd reports active.
+No deployment, service installation or hardware validation was performed for this change.

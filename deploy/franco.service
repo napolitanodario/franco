@@ -1,22 +1,17 @@
-# User service that runs the franco ROS 2 graph as the franco account.
-#
-# It is not a system unit and it does not run as dario. systemd --user starts
-# it after linger is enabled, so the graph comes back at boot without a login.
-# The process sources deploy/env.sh and then launches the graph. Restart=always
-# restarts the graph after the launch exits. The launch shuts down on a component
-# process exit. A connected process with stale data is reported by diagnostics;
-# it is not automatically restarted.
-
+# Managed by scripts/franco
+# Template: install with ./scripts/franco install-service.
 [Unit]
-Description=Franco ROS 2 graph
+Description=Franco perception bench
 After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/srv/franco/ros2_ws
-ExecStart=/bin/bash /srv/franco/ros2_ws/src/franco/deploy/run-graph.sh
+WorkingDirectory=@WORKING_DIRECTORY@
+Environment=@INSTALL@
+ExecStart=/bin/bash @RUN_GRAPH@
 Restart=always
 RestartSec=5
+TimeoutStopSec=15
 
 [Install]
 WantedBy=default.target

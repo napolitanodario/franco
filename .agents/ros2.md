@@ -34,3 +34,5 @@ errors produce ERROR diagnostics; expired results produce WARN. The detector own
 `franco_detect` status, while telemetry owns camera, command and USB statuses.
 The default result/overlay timeout is 2 seconds and preview is capped at 5 fps per
 stream. Unexpected process exit shuts down the graph for systemd to restart it.
+
+`franco_tools` also provides the read-only `check` probe. It requires distinct fresh image/detection stamps and fresh OK diagnostics; diagnostic heartbeats alone are insufficient. The local CLI exposes it through `./scripts/franco status` and `check`.
