@@ -27,12 +27,16 @@ class InstalledBenchTests(unittest.TestCase):
 
         observer.create_subscription(DiagnosticArray, "/installed_test/diagnostics", receive, 10)
         try:
+            expected = {"franco_detect", "franco_obstacle", "franco_telemetry", "franco_command"}
             deadline = time.monotonic() + 6.0
-            while len(statuses) < 4 and time.monotonic() < deadline and process.poll() is None:
+            names = set()
+            while time.monotonic() < deadline and process.poll() is None:
                 rclpy.spin_once(observer, timeout_sec=0.1)
-            names = {name for name, namespace in observer.get_node_names_and_namespaces()
-                     if namespace == "/installed_test"}
-            self.assertEqual(names, {"franco_detect", "franco_telemetry", "franco_command"})
+                names = {name for name, namespace in observer.get_node_names_and_namespaces()
+                         if namespace == "/installed_test"}
+                if len(statuses) >= 4 and expected <= names:
+                    break
+            self.assertEqual(names, expected)
             self.assertEqual(statuses["franco_detect"].level, DiagnosticStatus.ERROR)
             self.assertEqual(statuses["franco_camera"].level, DiagnosticStatus.WARN)
             self.assertNotIn("franco_preview", names)

@@ -1,12 +1,14 @@
 # Architecture
 
-Four ROS packages, five processes, one camera owner.
+Four ROS packages, six processes, one camera owner.
 
 `franco_perception` owns detection; `franco_diagnostics` owns telemetry and shared health/lifecycle helpers; `franco_tools` owns preview and the command monitor. `franco_bringup` depends on those packages and the external camera driver. The dependency graph has no cycles.
 
 `realsense2_camera` is the only process that opens the D415. It publishes color on `/camera/camera/color/image_raw` and depth on `/camera/camera/depth/image_rect_raw`. Depth values are millimeters in a 16-bit image. The launch file asks for 640x480 at 15 fps and leaves alignment, the point cloud, and the driver colorizer off.
 
 `franco_detect` subscribes with sensor-data QoS, compatible with both best-effort and reliable image publishers. The callback keeps only the newest frame. A worker runs YOLO11n (ONNX, CPU, two threads, 320 px input), and a timer consumes each completed result once. Missing weights and inference failures produce ERROR diagnostics without fabricated empty detections. Results older than `result_timeout` are dropped. NMS preserves different classes unless class-agnostic mode is explicitly enabled.
+
+`franco_obstacle` subscribes only to the rectified depth image. A fixed fractional window counts pixels inside a stop distance, and `std_msgs/Bool` on `/franco/obstacle` is true when enough of those pixels agree. It does not read color or YOLO detections. A window with no valid depth is not published as clear. The node owns the `franco_obstacle` diagnostic.
 
 `franco_preview` subscribes to color, depth, and detections. It JPEG-encodes the latest color image with the latest boxes drawn on it, and a colorized copy of the depth image. Flask serves those bytes as MJPEG on `0.0.0.0:8080`, so browsers on the same Wi-Fi can open the page. Handlers wait for the next frame. They do not call the camera SDK.
 

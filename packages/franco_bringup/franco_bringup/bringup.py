@@ -51,7 +51,8 @@ def build_graph(profile: dict, *, namespace="", model_path="", with_camera=True,
         actions.append(IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(driver_launch)), launch_arguments=arguments.items(),
         ))
-    specs = [("franco_perception", "detect", "perception")]
+    specs = [("franco_perception", "detect", "perception"),
+             ("franco_perception", "obstacle", "obstacle")]
     if with_preview:
         specs.append(("franco_tools", "preview", "preview"))
     specs += [("franco_diagnostics", "telemetry", "diagnostics"),

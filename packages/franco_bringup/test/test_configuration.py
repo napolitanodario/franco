@@ -68,4 +68,4 @@ class ConfigurationTests(unittest.TestCase):
         with patch("franco_bringup.bringup.Node", side_effect=lambda **kwargs: kwargs):
             actions = build_graph(self.profile, with_camera=False, with_preview=False)
         executables = [action["executable"] for action in actions if isinstance(action, dict)]
-        self.assertEqual(executables, ["detect", "telemetry", "command"])
+        self.assertEqual(executables, ["detect", "obstacle", "telemetry", "command"])

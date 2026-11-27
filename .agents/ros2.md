@@ -7,13 +7,14 @@ Launch with `ros2 launch franco_bringup bench.launch.py` and supply model weight
 | --- | --- | --- | --- |
 | camera | external `realsense2_camera` | RealSense device | color, depth, camera info, TF |
 | `franco_detect` | `franco_perception` | color | detections, diagnostics |
+| `franco_obstacle` | `franco_perception` | depth | obstacle flag, diagnostics |
 | `franco_preview` | `franco_tools` | color, depth, detections | HTTP MJPEG |
 | `franco_telemetry` | `franco_diagnostics` | color, last command | diagnostics |
 | `franco_command` | `franco_tools` | velocity command | last command; no actuation |
 
 Default topics in the root namespace remain `/camera/camera/color/image_raw`,
-`/camera/camera/depth/image_rect_raw`, `/franco/detections`, `/diagnostics`,
-`/franco/cmd_vel` and `/franco/command/last`. A launch namespace prefixes the graph.
+`/camera/camera/depth/image_rect_raw`, `/franco/detections`, `/franco/obstacle`,
+`/diagnostics`, `/franco/cmd_vel` and `/franco/command/last`. A launch namespace prefixes the graph.
 Image remappings follow the camera namespace/name in the profile. Give separate
 camera instances unique names (TF frames) and preview ports.
 
@@ -31,7 +32,9 @@ Node parameters configure startup; restart nodes to apply changes.
 
 Each completed, fresh inference is published once. Missing models and inference
 errors produce ERROR diagnostics; expired results produce WARN. The detector owns
-`franco_detect` status, while telemetry owns camera, command and USB statuses.
+`franco_detect` status. `franco_obstacle` owns its own status from the depth
+window and does not read color or detections. Telemetry owns camera, command
+and USB statuses. The check probe does not require `franco_obstacle` yet.
 The default result/overlay timeout is 2 seconds and preview is capped at 5 fps per
 stream. Unexpected process exit shuts down the graph for systemd to restart it.
 

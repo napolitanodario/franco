@@ -21,6 +21,17 @@ perception:
   result_timeout: 2.0
   class_agnostic_nms: false
 
+obstacle:
+  stop_distance_mm: 800
+  min_valid_mm: 100
+  max_valid_mm: 4000
+  min_pixels: 50
+  roi_top: 0.35
+  roi_bottom: 0.95
+  roi_left: 0.25
+  roi_right: 0.75
+  result_timeout: 2.0
+
 preview:
   host: 0.0.0.0
   port: 8080

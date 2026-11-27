@@ -15,9 +15,11 @@ from cv_bridge import CvBridge
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from vision_msgs.msg import Detection2DArray
 
 from franco_perception.detect_node import DetectNode, _to_detection
+from franco_perception.obstacle_node import ObstacleNode
 from franco_tools.preview_node import PreviewNode
 from franco_diagnostics.telemetry_node import TelemetryNode
 from franco_perception.yolo import Box
@@ -180,3 +182,24 @@ class NodeTests(unittest.TestCase):
         while time.monotonic() < deadline:
             executor.spin_once(timeout_sec=0.05)
         self.assertEqual(len(results), 1)
+
+    def test_depth_window_blocks_without_color_or_detections(self):
+        node = ObstacleNode(parameter_overrides=[
+            Parameter("min_pixels", Parameter.Type.INTEGER, 2),
+        ])
+        self.addCleanup(node.destroy_node)
+        near = np.full((8, 8), 400, dtype=np.uint16)
+        far = np.full((8, 8), 2500, dtype=np.uint16)
+        empty = np.zeros((8, 8), dtype=np.uint16)
+        with patch.object(node._publisher, "publish") as publish:
+            node._on_depth(self._depth(node, near))
+            node._on_depth(self._depth(node, far))
+            node._on_depth(self._depth(node, empty))
+            self.assertEqual([call.args[0].data for call in publish.call_args_list], [True, False])
+        self.assertEqual(self.status(node).level, DiagnosticStatus.WARN)
+
+    def _depth(self, node, array):
+        image = CvBridge().cv2_to_imgmsg(array, encoding="16UC1")
+        image.header.stamp = node.get_clock().now().to_msg()
+        image.header.frame_id = "camera_depth_optical_frame"
+        return image

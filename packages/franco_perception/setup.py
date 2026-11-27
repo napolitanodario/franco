@@ -15,7 +15,10 @@ setup(
     zip_safe=False,
     maintainer='Dario Napolitano',
     maintainer_email='darionapo2.0@gmail.com',
-    description='Camera perception and YOLO inference.',
+    description='Camera perception: YOLO inference and a depth obstacle check.',
     license='Apache-2.0',
-    entry_points={'console_scripts': ["detect = franco_perception.detect_node:main"]},
+    entry_points={'console_scripts': [
+        "detect = franco_perception.detect_node:main",
+        "obstacle = franco_perception.obstacle_node:main",
+    ]},
 )

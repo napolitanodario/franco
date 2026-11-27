@@ -2,7 +2,7 @@
 <package format="3">
   <name>franco_perception</name>
   <version>0.1.0</version>
-  <description>Camera perception and YOLO inference.</description>
+  <description>Camera perception: YOLO inference and a depth obstacle check.</description>
   <maintainer email="darionapo2.0@gmail.com">Dario Napolitano</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_python</buildtool_depend>

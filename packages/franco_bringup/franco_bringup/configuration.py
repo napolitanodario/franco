@@ -6,7 +6,7 @@ import re
 
 import yaml
 
-_SECTIONS = {"camera", "perception", "preview", "diagnostics", "command"}
+_SECTIONS = {"camera", "perception", "obstacle", "preview", "diagnostics", "command"}
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 
